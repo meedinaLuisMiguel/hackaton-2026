@@ -1,0 +1,330 @@
+<!DOCTYPE html><html lang="es"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interpretación Ambiental y Chat Offline — Guía de Páramo</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">/** @type {import('tailwindcss').Config} */
+globalThis.tailwind = globalThis.tailwind || {};
+globalThis.tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'moss-green': '#2D4739',
+        'earth-brown': '#8C6D46',
+        'safety-amber': '#D97724',
+        'amber-surface': '#FFEDE4',
+        'on-amber-surface': '#713700',
+        'moss-surface': '#DAF8E4',
+        'on-moss-surface': '#173124',
+        'light-primary': '#2D4739',
+        'light-on-primary': '#FFFFFF',
+        'light-primary-container': '#CCEAD6',
+        'light-on-primary-container': '#062014',
+        'light-secondary': '#765934',
+        'light-on-secondary': '#FFFFFF',
+        'light-secondary-container': '#FFEEDD',
+        'light-on-secondary-container': '#432C0A',
+        'light-tertiary': '#B95E05',
+        'light-on-tertiary': '#FFFFFF',
+        'light-tertiary-container': '#FFEDE4',
+        'light-on-tertiary-container': '#502500',
+        'light-error': '#BA1A1A',
+        'light-on-error': '#FFFFFF',
+        'light-error-container': '#FFDAD6',
+        'light-on-error-container': '#93000A',
+        'light-background': '#F4F6F4',
+        'light-on-background': '#191C1B',
+        'light-surface': '#F4F6F4',
+        'light-surface-container-lowest': '#FFFFFF',
+        'light-surface-container-low': '#EFF1EF',
+        'light-surface-container': '#E6E9E7',
+        'light-surface-container-high': '#DEE4DE',
+        'light-on-surface': '#191C1B',
+        'light-on-surface-variant': '#424844',
+        'light-outline': '#727973',
+        'light-outline-variant': '#C2C8C2',
+      },
+      borderRadius: {
+        'sm': '8px',
+        'DEFAULT': '12px',
+        'md': '16px',
+        'lg': '20px',
+        'xl': '24px',
+        'full': '9999px',
+      },
+      spacing: {
+        'gutter-xs': '4px',
+        'gutter-sm': '8px',
+        'gutter-md': '12px',
+        'gutter-lg': '16px',
+        'gutter-xl': '24px',
+        'section': '32px',
+        'page-margin': '16px',
+      },
+      fontFamily: {
+        'display': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'headline': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'title': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'body': ['"Commissioner"', 'sans-serif'],
+        'label': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'mono': ['"Reddit Mono"', 'monospace'],
+      },
+      fontSize: {
+        'display-lg': ['36px', { lineHeight: '42px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        'display-lg-mobile': ['28px', { lineHeight: '34px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-lg': ['24px', { lineHeight: '30px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-md': ['20px', { lineHeight: '26px', letterSpacing: '-0.15px', fontWeight: '600' }],
+        'title-md': ['16px', { lineHeight: '22px', letterSpacing: '0px', fontWeight: '600' }],
+        'title-sm': ['14px', { lineHeight: '20px', letterSpacing: '0px', fontWeight: '600' }],
+        'body-lg': ['16px', { lineHeight: '24px', letterSpacing: '0px', fontWeight: '400' }],
+        'body-md': ['14px', { lineHeight: '21px', letterSpacing: '0px', fontWeight: '400' }],
+        'label-lg': ['14px', { lineHeight: '18px', letterSpacing: '0.1px', fontWeight: '600' }],
+        'label-sm': ['12px', { lineHeight: '16px', letterSpacing: '0.2px', fontWeight: '600' }],
+        'mono-sm': ['12px', { lineHeight: '16px', letterSpacing: '0px', fontWeight: '500' }],
+      },
+      transitionDuration: {
+        'state-change': '120ms',
+        'surface-enter': '240ms',
+        'surface-exit': '160ms',
+      },
+      transitionDelay: {
+        'state-change': '0ms',
+        'surface-enter': '0ms',
+        'surface-exit': '0ms',
+      },
+      transitionTimingFunction: {
+        'state-change': 'ease-out',
+        'surface-enter': 'cubic-bezier(0.2, 0, 0, 1)',
+        'surface-exit': 'cubic-bezier(0.3, 0, 1, 1)',
+      },
+    },
+  },
+};
+if (typeof module !== 'undefined') module.exports = globalThis.tailwind.config;
+</script>
+  <link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Reddit+Mono:wght@500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
+  <style>
+    .material-symbols-outlined {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      line-height: 1 !important;
+      box-sizing: content-box;
+      overflow: hidden;
+      white-space: nowrap;
+      direction: ltr;
+      vertical-align: middle;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-light-background text-light-on-surface font-body antialiased">
+  <div class="relative min-h-[884px] w-full max-w-[390px] mx-auto flex flex-col bg-light-background overflow-x-hidden" data-stitch-vh="min-h-[884px]===min-h-screen">
+    <!-- Subtle misty páramo backdrop -->
+    <div class="pointer-events-none fixed inset-0 max-w-[390px] mx-auto z-0 overflow-hidden" aria-hidden="true">
+      <img src="https://lh3.googleusercontent.com/aida/ALJJyrBVPJ58g8N6DbEH1eZy_XbmvaGUWQJiIGKLwW01q3Rrld_BCO3l7R-KagWXRdMeabcP0zclvSQ2HOcQ-ITVj89Yyei9xTx6a_-iGnzszS_a3Q4Dlob-9o6kYNZ8QtZ1NZGCEl8hV4DFjFxZAbzvjU-Ra8-iq4eqqaotgP0DnpSqOmY8v3hOzUwjUEw_v-vVrbk7s_Em2wk-6qOtLbNoSnd9iphjF_O9cNXy9ehGa3f4PUEHgLSRcxwt" alt class="w-full h-full object-cover opacity-20">
+      <div class="absolute inset-0 bg-gradient-to-b from-light-background/80 via-light-background/75 to-light-background/95"></div>
+    </div>
+
+    <!-- Top Contextual Bar -->
+    <header class="sticky top-0 z-20 px-page-margin py-2.5 bg-light-background/90 backdrop-blur-md border-b border-light-outline-variant/60 flex items-center justify-between gap-2">
+      <a href="../senderos-modo-offline/SenderosYModoOffline.html" data-component-id="button-icon" data-component-type="button" data-component-variant="icon" aria-label="Volver a Senderos" class="min-w-[48px] min-h-[48px] rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface inline-flex items-center justify-center shrink-0 transition-colors duration-state-change ease-state-change hover:bg-light-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+        <span class="material-symbols-outlined text-[22px]" aria-hidden="true">arrow_back</span>
+      </a>
+
+      <!-- Current GPS Elevation Pill -->
+      <div class="flex-1 min-w-0 flex justify-center">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface max-w-full">
+          <span class="material-symbols-outlined text-[15px] text-earth-brown shrink-0" aria-hidden="true">landscape</span>
+          <span class="font-mono text-mono-sm tabular-nums truncate" data-design-text-token="mono-sm">3.980 m • Ecosistema Súperpáramo</span>
+        </span>
+      </div>
+
+      <!-- 100% Offline Status Badge -->
+      <span data-component-id="badge-success" data-component-type="badge" data-component-variant="success" role="status" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-moss-surface text-on-moss-surface border border-light-primary/20 shrink-0">
+        <span class="material-symbols-outlined text-[14px]" aria-hidden="true">offline_bolt</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">100% Offline</span>
+      </span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex-1 px-page-margin py-4 flex flex-col gap-4">
+      <!-- Top Half: Visual Identifier Card -->
+      <section aria-label="Identificador visual de especies">
+        <article data-component-id="card-elevated" data-component-type="card" data-component-variant="elevated" class="w-full rounded-xl bg-light-surface-container-lowest border border-light-outline-variant overflow-hidden shadow-sm">
+          <!-- Camera Viewfinder / Captured Photo Preview -->
+          <div class="relative w-full h-48 bg-light-surface-container-high overflow-hidden">
+            <img src="https://lh3.googleusercontent.com/aida/ALJJyrAsggVoWIEwoSvdFnhX9oc_hFJN1xWn7zbJvSo3IjawJD01WI_cAjmhwYYoggPqrhsiYXOH_zX53juogJMt7_1-_zpgCuLbdal8Kldy2DJbWNMz-k10vNYIvsrXMNQXsI2TQjLGZp-E_PbzZunhtWxwRyKVJQKf-nagrIGdwR5mDCEcH7kyVe2BKRIy2Y3WO3ibz8KMFpkjZlQOUuC8BElOW65A-UCSIws5pXAeVsgkykJgllqDMqN3XskD" alt="Vista de cámara de un frailejón (Espeletia hartwegiana) cubierto de neblina" class="w-full h-full object-cover">
+
+            <!-- Subtle AI Focus Frame -->
+            <div class="pointer-events-none absolute inset-4 flex flex-col justify-between" aria-hidden="true">
+              <div class="flex justify-between">
+                <span class="w-5 h-5 border-t-2 border-l-2 border-light-surface-container-lowest rounded-tl-sm"></span>
+                <span class="w-5 h-5 border-t-2 border-r-2 border-light-surface-container-lowest rounded-tr-sm"></span>
+              </div>
+              <div class="flex justify-between items-end">
+                <span class="w-5 h-5 border-b-2 border-l-2 border-light-surface-container-lowest rounded-bl-sm"></span>
+                <span class="px-2.5 py-1 rounded-full bg-light-on-surface/75 backdrop-blur-sm text-light-surface-container-lowest font-mono text-mono-sm inline-flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">center_focus_strong</span>
+                  <span>IA Local • 98%</span>
+                </span>
+                <span class="w-5 h-5 border-b-2 border-r-2 border-light-surface-container-lowest rounded-br-sm"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scientific Identification Details -->
+          <div class="p-4 flex flex-col gap-2.5">
+            <div class="flex flex-col gap-1">
+              <h1 class="font-headline text-headline-md text-light-on-surface leading-snug" data-design-text-token="headline-md">
+                Frailejón <span class="italic font-medium text-light-on-surface-variant">(Espeletia hartwegiana)</span>
+              </h1>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-light-primary-container text-light-on-primary-container font-label text-label-sm">
+                  <span class="material-symbols-outlined text-[14px]" aria-hidden="true">water_drop</span>
+                  <span data-design-text-token="label-sm">Fábrica de Agua • Especie Endémica</span>
+                </span>
+              </div>
+            </div>
+
+            <p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md">
+              Sus hojas aterciopeladas atrapan microgotas de neblina y las filtran hacia el suelo húmico que alimenta las cuencas de Caldas.
+            </p>
+
+            <!-- Amber Conservation Alert Pill -->
+            <div data-component-id="badge-warning" data-component-type="badge" data-component-variant="warning" role="status" class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-surface text-on-amber-surface border border-safety-amber/30">
+              <span class="material-symbols-outlined text-[18px] text-safety-amber shrink-0" aria-hidden="true">warning</span>
+              <span class="font-label text-label-sm leading-snug" data-design-text-token="label-sm">No tocar ni pisar el suelo esponjoso circundante</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Bottom Half: Fast Offline AI Chat -->
+      <section id="chat" aria-label="Chat científico offline" class="flex-1 flex flex-col gap-3">
+        <!-- Verified Local Knowledge Base Header -->
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">Asistente Ambiental</h2>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-light-surface-container-lowest/90 border border-light-outline-variant text-light-primary font-label text-label-sm">
+            <span class="material-symbols-outlined text-[15px]" aria-hidden="true">verified_user</span>
+            <span data-design-text-token="label-sm">Base Científica Local</span>
+          </span>
+        </div>
+
+        <!-- Chat Thread -->
+        <div id="chat-thread" class="flex flex-col gap-2.5">
+          <!-- Sample AI Bubble -->
+          <div class="flex items-start gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-light-primary text-light-on-primary flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
+              <span class="material-symbols-outlined text-[18px]">eco</span>
+            </div>
+            <div class="flex-1 rounded-xl rounded-tl-sm bg-light-surface-container-lowest border border-light-outline-variant p-3.5 shadow-sm">
+              <p class="font-body text-body-md text-light-on-surface text-pretty" data-design-text-token="body-md">
+                Estás en zona de amortiguación hídrica. ¿Quieres saber cómo este frailejón captura agua de la neblina?
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Horizontal Quick-Prompt Chips (48px+ touch targets) -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" role="group" aria-label="Preguntas rápidas">
+          <button type="button" data-quick-prompt="Fauna cercana" data-component-id="chip-action" data-component-type="chip" data-component-variant="suggestion" class="min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change hover:bg-light-primary-container hover:text-light-on-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+            <span class="material-symbols-outlined text-[18px] text-earth-brown" aria-hidden="true">pets</span>
+            <span data-design-text-token="label-lg">Fauna cercana</span>
+          </button>
+
+          <button type="button" data-quick-prompt="Riesgo de soroche" data-component-id="chip-action" data-component-type="chip" data-component-variant="suggestion" class="min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change hover:bg-light-primary-container hover:text-light-on-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+            <span class="material-symbols-outlined text-[18px] text-safety-amber" aria-hidden="true">altitude</span>
+            <span data-design-text-token="label-lg">Riesgo de soroche</span>
+          </button>
+
+          <button type="button" data-quick-prompt="Flora del sector" data-component-id="chip-action" data-component-type="chip" data-component-variant="suggestion" class="min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change hover:bg-light-primary-container hover:text-light-on-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+            <span class="material-symbols-outlined text-[18px] text-light-primary" aria-hidden="true">psychiatry</span>
+            <span data-design-text-token="label-lg">Flora del sector</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Input Bar (Large 48px+ touch targets for hiking gloves) -->
+    <footer class="sticky bottom-0 z-20 bg-light-surface-container-lowest/95 backdrop-blur-md border-t border-light-outline-variant px-page-margin py-2.5">
+      <form id="chat-form" class="flex items-center gap-2">
+        <!-- Large Microphone Button -->
+        <button type="button" id="mic-btn" aria-label="Dictar pregunta por voz" class="min-w-[48px] min-h-[48px] rounded-full bg-light-primary-container text-light-on-primary-container inline-flex items-center justify-center shrink-0 transition-colors duration-state-change hover:bg-moss-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+          <span class="material-symbols-outlined text-[24px]" aria-hidden="true">mic</span>
+        </button>
+
+        <!-- Camera Button -->
+        <button type="button" id="cam-btn" aria-label="Escanear otra especie con cámara" class="min-w-[48px] min-h-[48px] rounded-full bg-light-surface-container-low border border-light-outline-variant text-light-on-surface inline-flex items-center justify-center shrink-0 transition-colors duration-state-change hover:bg-light-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+          <span class="material-symbols-outlined text-[22px]" aria-hidden="true">photo_camera</span>
+        </button>
+
+        <!-- Text Input -->
+        <label for="chat-input" class="sr-only">Escribe tu pregunta offline</label>
+        <input id="chat-input" type="text" placeholder="Pregunta sin señal..." class="flex-1 min-w-0 min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-low border border-light-outline-variant font-body text-body-md text-light-on-surface placeholder:text-light-outline focus:outline-none focus:border-light-primary focus:ring-1 focus:ring-light-primary">
+
+        <!-- Send Button -->
+        <button type="submit" aria-label="Enviar consulta" class="min-w-[48px] min-h-[48px] rounded-full bg-light-primary text-light-on-primary inline-flex items-center justify-center shrink-0 transition-colors duration-state-change hover:bg-on-moss-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+          <span class="material-symbols-outlined text-[22px]" aria-hidden="true">send</span>
+        </button>
+      </form>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const chatThread = document.getElementById('chat-thread');
+      const chatForm = document.getElementById('chat-form');
+      const chatInput = document.getElementById('chat-input');
+
+      const offlineAnswers = {
+        'Fauna cercana': 'En este sector de súperpáramo (3.980 m) habitan el colibrí chivito de páramo (Oxypogon stuebelii) y el cóndor andino en vuelos altos. Mantén silencio y distancia.',
+        'Riesgo de soroche': 'A 3.980 m la presión de oxígeno baja ~38%. Camina a paso lento, hidrátate cada 20 minutos y desciende si sientes mareo intenso o dolor de cabeza.',
+        'Flora del sector': 'Además de Espeletia hartwegiana, predominan pajonales de Calamagrostis, musgos Sphagnum retenedores de agua y senecios enanos.'
+      };
+
+      function appendMessage(text, isUser) {
+        if (!chatThread) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = isUser ? 'flex justify-end' : 'flex items-start gap-2.5';
+        if (isUser) {
+          wrapper.innerHTML = '<div class="max-w-[85%] rounded-xl rounded-tr-sm bg-light-primary text-light-on-primary px-3.5 py-2.5"><p class="font-body text-body-md">' + text + '</p></div>';
+        } else {
+          wrapper.innerHTML = '<div class="w-8 h-8 rounded-full bg-light-primary text-light-on-primary flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true"><span class="material-symbols-outlined text-[18px]">eco</span></div><div class="flex-1 rounded-xl rounded-tl-sm bg-light-surface-container-lowest border border-light-outline-variant p-3.5 shadow-sm"><p class="font-body text-body-md text-light-on-surface">' + text + '</p></div>';
+        }
+        chatThread.appendChild(wrapper);
+      }
+
+      document.querySelectorAll('[data-quick-prompt]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          const prompt = chip.getAttribute('data-quick-prompt');
+          if (!prompt) return;
+          appendMessage(prompt, true);
+          const reply = offlineAnswers[prompt] || 'Información científica local cargada para este punto GPS.';
+          appendMessage(reply, false);
+        });
+      });
+
+      if (chatForm && chatInput) {
+        chatForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const val = chatInput.value.trim();
+          if (!val) return;
+          appendMessage(val, true);
+          chatInput.value = '';
+          appendMessage('Consulta procesada en la base científica local (3.980 m s.n.m.). Evita salir del sendero demarcado para proteger el suelo del páramo.', false);
+        });
+      }
+    })();
+  </script>
+
+
+</body></html>

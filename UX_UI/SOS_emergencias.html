@@ -1,0 +1,331 @@
+<!DOCTYPE html><html lang="es"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Directorio de Emergencias y SOS Satelital — Guía de Páramo</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">/** @type {import('tailwindcss').Config} */
+globalThis.tailwind = globalThis.tailwind || {};
+globalThis.tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'moss-green': '#2D4739',
+        'earth-brown': '#8C6D46',
+        'safety-amber': '#D97724',
+        'amber-surface': '#FFEDE4',
+        'on-amber-surface': '#713700',
+        'moss-surface': '#DAF8E4',
+        'on-moss-surface': '#173124',
+        'light-primary': '#2D4739',
+        'light-on-primary': '#FFFFFF',
+        'light-primary-container': '#CCEAD6',
+        'light-on-primary-container': '#062014',
+        'light-secondary': '#765934',
+        'light-on-secondary': '#FFFFFF',
+        'light-secondary-container': '#FFEEDD',
+        'light-on-secondary-container': '#432C0A',
+        'light-tertiary': '#B95E05',
+        'light-on-tertiary': '#FFFFFF',
+        'light-tertiary-container': '#FFEDE4',
+        'light-on-tertiary-container': '#502500',
+        'light-error': '#BA1A1A',
+        'light-on-error': '#FFFFFF',
+        'light-error-container': '#FFDAD6',
+        'light-on-error-container': '#93000A',
+        'light-background': '#F4F6F4',
+        'light-on-background': '#191C1B',
+        'light-surface': '#F4F6F4',
+        'light-surface-container-lowest': '#FFFFFF',
+        'light-surface-container-low': '#EFF1EF',
+        'light-surface-container': '#E6E9E7',
+        'light-surface-container-high': '#DEE4DE',
+        'light-on-surface': '#191C1B',
+        'light-on-surface-variant': '#424844',
+        'light-outline': '#727973',
+        'light-outline-variant': '#C2C8C2',
+      },
+      borderRadius: {
+        'sm': '8px',
+        'DEFAULT': '12px',
+        'md': '16px',
+        'lg': '20px',
+        'xl': '24px',
+        'full': '9999px',
+      },
+      spacing: {
+        'gutter-xs': '4px',
+        'gutter-sm': '8px',
+        'gutter-md': '12px',
+        'gutter-lg': '16px',
+        'gutter-xl': '24px',
+        'section': '32px',
+        'page-margin': '16px',
+      },
+      fontFamily: {
+        'display': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'headline': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'title': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'body': ['"Commissioner"', 'sans-serif'],
+        'label': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'mono': ['"Reddit Mono"', 'monospace'],
+      },
+      fontSize: {
+        'display-lg': ['36px', { lineHeight: '42px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        'display-lg-mobile': ['28px', { lineHeight: '34px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-lg': ['24px', { lineHeight: '30px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-md': ['20px', { lineHeight: '26px', letterSpacing: '-0.15px', fontWeight: '600' }],
+        'title-md': ['16px', { lineHeight: '22px', letterSpacing: '0px', fontWeight: '600' }],
+        'title-sm': ['14px', { lineHeight: '20px', letterSpacing: '0px', fontWeight: '600' }],
+        'body-lg': ['16px', { lineHeight: '24px', letterSpacing: '0px', fontWeight: '400' }],
+        'body-md': ['14px', { lineHeight: '21px', letterSpacing: '0px', fontWeight: '400' }],
+        'label-lg': ['14px', { lineHeight: '18px', letterSpacing: '0.1px', fontWeight: '600' }],
+        'label-sm': ['12px', { lineHeight: '16px', letterSpacing: '0.2px', fontWeight: '600' }],
+        'mono-sm': ['12px', { lineHeight: '16px', letterSpacing: '0px', fontWeight: '500' }],
+      },
+      transitionDuration: {
+        'state-change': '120ms',
+        'surface-enter': '240ms',
+        'surface-exit': '160ms',
+      },
+      transitionDelay: {
+        'state-change': '0ms',
+        'surface-enter': '0ms',
+        'surface-exit': '0ms',
+      },
+      transitionTimingFunction: {
+        'state-change': 'ease-out',
+        'surface-enter': 'cubic-bezier(0.2, 0, 0, 1)',
+        'surface-exit': 'cubic-bezier(0.3, 0, 1, 1)',
+      },
+    },
+  },
+};
+if (typeof module !== 'undefined') module.exports = globalThis.tailwind.config;
+</script>
+  <link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Reddit+Mono:wght@500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
+  <style>
+    .material-symbols-outlined {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      line-height: 1 !important;
+      box-sizing: content-box;
+      overflow: hidden;
+      white-space: nowrap;
+      direction: ltr;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body class="bg-light-background text-light-on-surface font-body antialiased">
+  <div class="relative min-h-[884px] w-full max-w-[390px] mx-auto flex flex-col bg-light-background overflow-x-hidden" data-stitch-vh="min-h-[884px]===min-h-screen">
+    <!-- Subtle misty páramo backdrop -->
+    <div class="pointer-events-none fixed inset-0 max-w-[390px] mx-auto z-0 overflow-hidden" aria-hidden="true">
+      <img src="https://lh3.googleusercontent.com/aida/ALJJyrBVPJ58g8N6DbEH1eZy_XbmvaGUWQJiIGKLwW01q3Rrld_BCO3l7R-KagWXRdMeabcP0zclvSQ2HOcQ-ITVj89Yyei9xTx6a_-iGnzszS_a3Q4Dlob-9o6kYNZ8QtZ1NZGCEl8hV4DFjFxZAbzvjU-Ra8-iq4eqqaotgP0DnpSqOmY8v3hOzUwjUEw_v-vVrbk7s_Em2wk-6qOtLbNoSnd9iphjF_O9cNXy9ehGa3f4PUEHgLSRcxwt" alt class="w-full h-full object-cover opacity-20">
+      <div class="absolute inset-0 bg-gradient-to-b from-light-background/80 via-light-background/75 to-light-background/95"></div>
+    </div>
+
+    <!-- Top Contextual Bar -->
+    <header class="sticky top-0 z-20 px-page-margin py-2.5 bg-light-background/90 backdrop-blur-md border-b border-light-outline-variant/60 flex items-center justify-between gap-2">
+      <a href="../senderos-modo-offline/SenderosYModoOffline.html" data-component-id="button-icon" data-component-type="button" data-component-variant="icon" aria-label="Volver a Senderos" class="min-w-[48px] min-h-[48px] rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface inline-flex items-center justify-center shrink-0 transition-colors duration-state-change ease-state-change hover:bg-light-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+        <span class="material-symbols-outlined text-[22px]" aria-hidden="true">arrow_back</span>
+      </a>
+
+      <!-- Current GPS Coordinates & Altitude Pill -->
+      <div class="flex-1 min-w-0 flex justify-center">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface max-w-full">
+          <span class="material-symbols-outlined text-[15px] text-earth-brown shrink-0" aria-hidden="true">my_location</span>
+          <span class="font-mono text-mono-sm tabular-nums truncate" data-design-text-token="mono-sm">4.895° N, 75.355° W • 3.980 m</span>
+        </span>
+      </div>
+
+      <!-- Satellite Ready Status Badge -->
+      <span role="status" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-surface text-on-amber-surface border border-safety-amber/30 shrink-0">
+        <span class="material-symbols-outlined text-[14px]" aria-hidden="true">satellite_alt</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">Satélite</span>
+      </span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex-1 px-page-margin py-4 flex flex-col gap-5">
+      <!-- Hero Satellite SOS Card -->
+      <section aria-label="Botón SOS Satelital">
+        <article class="w-full rounded-xl bg-light-surface-container-lowest border border-light-error/30 p-5 flex flex-col gap-4 shadow-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-light-error-container text-light-on-error-container font-label text-label-sm">
+                  <span class="material-symbols-outlined text-[14px]" aria-hidden="true">sos</span>
+                  <span data-design-text-token="label-sm">Emergencia Alta Montaña</span>
+                </span>
+              </div>
+              <h1 class="font-headline text-headline-md text-light-on-surface text-balance" data-design-text-token="headline-md">
+                Botón SOS Satelital
+              </h1>
+              <p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md">
+                Transmite tu última coordenada GPS, altitud y estado médico sin depender de señal celular.
+              </p>
+            </div>
+          </div>
+
+          <button id="sos-trigger-btn" type="button" class="w-full min-h-[56px] px-5 py-3.5 rounded-full bg-light-error text-light-on-error font-label text-label-lg inline-flex items-center justify-center gap-2 transition-colors duration-state-change ease-state-change hover:bg-light-on-error-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-error focus-visible:ring-offset-2 active:scale-[0.98]">
+            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">satellite_alt</span>
+            <span data-design-text-token="label-lg">Activar Alerta SOS Satelital</span>
+          </button>
+
+          <!-- Confirmation State Panel (hidden until tapped) -->
+          <div id="sos-confirm-panel" class="hidden rounded-lg bg-light-error-container/70 border border-light-error/30 p-3.5 flex flex-col gap-2.5" role="alert">
+            <p class="font-body text-body-md text-light-on-error-container text-pretty" data-design-text-token="body-md">
+              Enlace satelital en espera. Mantén el dispositivo hacia el cielo despejado y confirma el envío de baliza a 3.980 m s.n.m.
+            </p>
+            <div class="flex items-center gap-2">
+              <button id="sos-confirm-send" type="button" class="flex-1 min-h-[48px] px-4 py-2 rounded-full bg-light-error text-light-on-error font-label text-label-lg">
+                <span data-design-text-token="label-lg">Confirmar envío</span>
+              </button>
+              <button id="sos-cancel-btn" type="button" class="min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg">
+                <span data-design-text-token="label-lg">Cancelar</span>
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Emergency Directory Section -->
+      <section class="flex flex-col gap-3" aria-labelledby="directory-heading">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="directory-heading" class="font-headline text-title-md text-light-on-surface" data-design-text-token="title-md">
+            Directorio de Emergencias (Caldas)
+          </h2>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-sm">
+            <span class="material-symbols-outlined text-[14px]" aria-hidden="true">offline_pin</span>
+            <span data-design-text-token="label-sm">Offline</span>
+          </span>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <!-- Contact 1: PNN Los Nevados -->
+          <article class="rounded-xl bg-light-surface-container-lowest/90 backdrop-blur-md border border-light-outline-variant p-4 flex flex-col gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">
+                  PNN Los Nevados — Sector Brisas
+                </h3>
+                <p class="font-body text-body-md text-light-on-surface-variant" data-design-text-token="body-md">
+                  Guardaparques y control de alta montaña
+                </p>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full bg-light-primary-container text-light-on-primary-container font-mono text-mono-sm shrink-0" data-design-text-token="mono-sm">
+                VHF 154.325
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <span class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">
+                +57 (606) 887 2201
+              </span>
+              <a href="tel:+576068872201" class="min-h-[48px] px-4 py-2 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">call</span>
+                <span data-design-text-token="label-lg">Llamar</span>
+              </a>
+            </div>
+          </article>
+
+          <!-- Contact 2: Cruz Roja Caldas -->
+          <article class="rounded-xl bg-light-surface-container-lowest/90 backdrop-blur-md border border-light-outline-variant p-4 flex flex-col gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">
+                  Cruz Roja Seccional Caldas
+                </h3>
+                <p class="font-body text-body-md text-light-on-surface-variant" data-design-text-token="body-md">
+                  Rescate en montaña y atención prehospitalaria
+                </p>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full bg-light-secondary-container text-light-on-secondary-container font-mono text-mono-sm shrink-0" data-design-text-token="mono-sm">
+                Línea 132
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <span class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">
+                +57 (606) 880 0200
+              </span>
+              <a href="tel:132" class="min-h-[48px] px-4 py-2 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">call</span>
+                <span data-design-text-token="label-lg">Llamar 132</span>
+              </a>
+            </div>
+          </article>
+
+          <!-- Contact 3: Defensa Civil -->
+          <article class="rounded-xl bg-light-surface-container-lowest/90 backdrop-blur-md border border-light-outline-variant p-4 flex flex-col gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">
+                  Defensa Civil — Villamaría
+                </h3>
+                <p class="font-body text-body-md text-light-on-surface-variant" data-design-text-token="body-md">
+                  Búsqueda y evacuación en páramo
+                </p>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full bg-light-secondary-container text-light-on-secondary-container font-mono text-mono-sm shrink-0" data-design-text-token="mono-sm">
+                Línea 144
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <span class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">
+                +57 (606) 884 1919
+              </span>
+              <a href="tel:144" class="min-h-[48px] px-4 py-2 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">call</span>
+                <span data-design-text-token="label-lg">Llamar 144</span>
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Safety Amber Protocol Note -->
+      <section aria-label="Protocolo rápido de emergencia">
+        <div class="rounded-xl bg-amber-surface text-on-amber-surface border border-safety-amber/30 p-4 flex items-start gap-3">
+          <span class="material-symbols-outlined text-[22px] text-safety-amber shrink-0 mt-0.5" aria-hidden="true">warning</span>
+          <div class="flex flex-col gap-1">
+            <h3 class="font-headline text-title-sm" data-design-text-token="title-sm">Protocolo por soroche o hipotermia</h3>
+            <p class="font-body text-body-md text-pretty" data-design-text-token="body-md">
+              Ante mareo severo, desorientación o temblor incontrolable, desciende al menos 500 m y resguárdate del viento antes de activar el enlace SOS.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const sosBtn = document.getElementById('sos-trigger-btn');
+      const confirmPanel = document.getElementById('sos-confirm-panel');
+      const confirmSend = document.getElementById('sos-confirm-send');
+      const cancelBtn = document.getElementById('sos-cancel-btn');
+
+      if (sosBtn && confirmPanel) {
+        sosBtn.addEventListener('click', function () {
+          confirmPanel.classList.remove('hidden');
+        });
+      }
+
+      if (cancelBtn && confirmPanel) {
+        cancelBtn.addEventListener('click', function () {
+          confirmPanel.classList.add('hidden');
+        });
+      }
+
+      if (confirmSend && confirmPanel) {
+        confirmSend.addEventListener('click', function () {
+          confirmPanel.innerHTML = '<p class="font-label text-label-lg text-light-on-error-container">Baliza SOS en cola satelital (4.895° N, 75.355° W • 3.980 m). Permanece en un punto visible.</p>';
+        });
+      }
+    })();
+  </script>
+
+
+</body></html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html><html lang="es"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Senderos y Modo Offline — Guía de Páramo</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">/** @type {import('tailwindcss').Config} */
+globalThis.tailwind = globalThis.tailwind || {};
+globalThis.tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'moss-green': '#2D4739',
+        'earth-brown': '#8C6D46',
+        'safety-amber': '#D97724',
+        'amber-surface': '#FFEDE4',
+        'on-amber-surface': '#713700',
+        'moss-surface': '#DAF8E4',
+        'on-moss-surface': '#173124',
+        'light-primary': '#2D4739',
+        'light-on-primary': '#FFFFFF',
+        'light-primary-container': '#CCEAD6',
+        'light-on-primary-container': '#062014',
+        'light-secondary': '#765934',
+        'light-on-secondary': '#FFFFFF',
+        'light-secondary-container': '#FFEEDD',
+        'light-on-secondary-container': '#432C0A',
+        'light-tertiary': '#B95E05',
+        'light-on-tertiary': '#FFFFFF',
+        'light-tertiary-container': '#FFEDE4',
+        'light-on-tertiary-container': '#502500',
+        'light-error': '#BA1A1A',
+        'light-on-error': '#FFFFFF',
+        'light-error-container': '#FFDAD6',
+        'light-on-error-container': '#93000A',
+        'light-background': '#F4F6F4',
+        'light-on-background': '#191C1B',
+        'light-surface': '#F4F6F4',
+        'light-surface-container-lowest': '#FFFFFF',
+        'light-surface-container-low': '#EFF1EF',
+        'light-surface-container': '#E6E9E7',
+        'light-surface-container-high': '#DEE4DE',
+        'light-on-surface': '#191C1B',
+        'light-on-surface-variant': '#424844',
+        'light-outline': '#727973',
+        'light-outline-variant': '#C2C8C2',
+      },
+      borderRadius: {
+        'sm': '8px',
+        'DEFAULT': '12px',
+        'md': '16px',
+        'lg': '20px',
+        'xl': '24px',
+        'full': '9999px',
+      },
+      spacing: {
+        'gutter-xs': '4px',
+        'gutter-sm': '8px',
+        'gutter-md': '12px',
+        'gutter-lg': '16px',
+        'gutter-xl': '24px',
+        'section': '32px',
+        'page-margin': '16px',
+      },
+      fontFamily: {
+        'display': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'headline': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'title': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'body': ['"Commissioner"', 'sans-serif'],
+        'label': ['"Plus Jakarta Sans"', 'sans-serif'],
+        'mono': ['"Reddit Mono"', 'monospace'],
+      },
+      fontSize: {
+        'display-lg': ['36px', { lineHeight: '42px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        'display-lg-mobile': ['28px', { lineHeight: '34px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-lg': ['24px', { lineHeight: '30px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-md': ['20px', { lineHeight: '26px', letterSpacing: '-0.15px', fontWeight: '600' }],
+        'title-md': ['16px', { lineHeight: '22px', letterSpacing: '0px', fontWeight: '600' }],
+        'title-sm': ['14px', { lineHeight: '20px', letterSpacing: '0px', fontWeight: '600' }],
+        'body-lg': ['16px', { lineHeight: '24px', letterSpacing: '0px', fontWeight: '400' }],
+        'body-md': ['14px', { lineHeight: '21px', letterSpacing: '0px', fontWeight: '400' }],
+        'label-lg': ['14px', { lineHeight: '18px', letterSpacing: '0.1px', fontWeight: '600' }],
+        'label-sm': ['12px', { lineHeight: '16px', letterSpacing: '0.2px', fontWeight: '600' }],
+        'mono-sm': ['12px', { lineHeight: '16px', letterSpacing: '0px', fontWeight: '500' }],
+      },
+      transitionDuration: {
+        'state-change': '120ms',
+        'surface-enter': '240ms',
+        'surface-exit': '160ms',
+      },
+      transitionDelay: {
+        'state-change': '0ms',
+        'surface-enter': '0ms',
+        'surface-exit': '0ms',
+      },
+      transitionTimingFunction: {
+        'state-change': 'ease-out',
+        'surface-enter': 'cubic-bezier(0.2, 0, 0, 1)',
+        'surface-exit': 'cubic-bezier(0.3, 0, 1, 1)',
+      },
+    },
+  },
+};
+if (typeof module !== 'undefined') module.exports = globalThis.tailwind.config;
+</script>
+  <link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Reddit+Mono:wght@500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
+  <style>
+    .material-symbols-outlined {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      line-height: 1 !important;
+      box-sizing: content-box;
+      overflow: hidden;
+      white-space: nowrap;
+      direction: ltr;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body class="bg-light-background text-light-on-surface font-body antialiased">
+  <div class="relative min-h-[884px] w-full max-w-[390px] mx-auto flex flex-col bg-light-background overflow-x-hidden" data-stitch-vh="min-h-[884px]===min-h-screen">
+    <!-- Atmospheric misty páramo background -->
+    <div class="pointer-events-none fixed inset-0 max-w-[390px] mx-auto z-0 overflow-hidden" aria-hidden="true">
+      <img src="https://lh3.googleusercontent.com/aida/ALJJyrBVPJ58g8N6DbEH1eZy_XbmvaGUWQJiIGKLwW01q3Rrld_BCO3l7R-KagWXRdMeabcP0zclvSQ2HOcQ-ITVj89Yyei9xTx6a_-iGnzszS_a3Q4Dlob-9o6kYNZ8QtZ1NZGCEl8hV4DFjFxZAbzvjU-Ra8-iq4eqqaotgP0DnpSqOmY8v3hOzUwjUEw_v-vVrbk7s_Em2wk-6qOtLbNoSnd9iphjF_O9cNXy9ehGa3f4PUEHgLSRcxwt" alt class="w-full h-full object-cover opacity-30">
+      <div class="absolute inset-0 bg-gradient-to-b from-light-background/70 via-light-background/60 to-light-background/95"></div>
+    </div>
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-20 px-page-margin pt-3 pb-3 bg-light-background/85 backdrop-blur-md border-b border-light-outline-variant/60 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <!-- Minimal mountain-AI emblem -->
+        <div class="w-10 h-10 rounded-md bg-light-primary text-light-on-primary flex items-center justify-center shrink-0" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 19L9.5 7L14 14.5L16.5 11L21 19H3Z"></path>
+            <circle cx="17.5" cy="5.5" r="1.5" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-headline text-title-md text-light-on-surface leading-tight" data-design-text-token="title-md">Guía de Páramo</h1>
+          <p class="font-mono text-mono-sm text-light-on-surface-variant" data-design-text-token="mono-sm">Los Nevados • Caldas</p>
+        </div>
+      </div>
+
+      <!-- Offline status pill -->
+      <span data-component-id="badge-success" data-component-type="badge" data-component-variant="success" role="status" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-moss-surface text-on-moss-surface border border-light-primary/20 shrink-0">
+        <span class="material-symbols-outlined text-[15px]" aria-hidden="true">cloud_off</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">Modo Sin Señal • Listo</span>
+      </span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex-1 px-page-margin py-4 flex flex-col gap-5">
+      <!-- Hero Action Card (Frosted Glass) -->
+      <section aria-label="Exploración por GPS">
+        <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="w-full rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-surface-container-lowest p-5 flex flex-col gap-4 shadow-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex flex-col gap-1">
+              <h2 class="font-headline text-headline-md text-light-on-surface text-balance" data-design-text-token="headline-md">Exploración Libre por GPS</h2>
+              <p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md">Detecta especies y altitud sin ruta previa</p>
+            </div>
+            <span class="w-10 h-10 rounded-full bg-light-primary-container text-light-on-primary-container flex items-center justify-center shrink-0" aria-hidden="true">
+              <span class="material-symbols-outlined text-[22px]">explore</span>
+            </span>
+          </div>
+
+          <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html" data-component-id="button-with-icon" data-component-type="button" data-component-variant="with-icon" class="w-full min-h-[48px] px-5 py-3 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center justify-center gap-2 transition-colors duration-state-change ease-state-change hover:bg-on-moss-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary focus-visible:ring-offset-2">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">radar</span>
+            <span data-design-text-token="label-lg">Activar Radar GPS</span>
+          </a>
+        </article>
+      </section>
+
+      <!-- Trail Catalog Section -->
+      <section class="flex flex-col gap-3" aria-labelledby="catalog-heading">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="catalog-heading" class="font-headline text-title-md text-light-on-surface" data-design-text-token="title-md">
+            Catálogo Alta Montaña (Caldas)
+          </h2>
+          <button id="toggle-search-btn" data-component-id="button-icon" data-component-type="button" data-component-variant="icon" type="button" aria-label="Buscar o filtrar senderos" aria-expanded="false" class="min-w-[48px] min-h-[48px] rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface inline-flex items-center justify-center transition-colors duration-state-change ease-state-change hover:bg-light-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">search</span>
+          </button>
+        </div>
+
+        <!-- Collapsible Search Bar (Progressive Disclosure) -->
+        <div id="trail-search-panel" class="hidden">
+          <label for="trail-search-input" class="sr-only">Filtrar senderos por nombre</label>
+          <div class="relative flex items-center">
+            <span class="material-symbols-outlined text-[20px] text-light-on-surface-variant absolute left-3.5" aria-hidden="true">filter_list</span>
+            <input id="trail-search-input" type="search" placeholder="Buscar sendero o altitud..." class="w-full min-h-[48px] pl-11 pr-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant font-body text-body-md text-light-on-surface placeholder:text-light-outline focus:outline-none focus:border-light-primary focus:ring-1 focus:ring-light-primary">
+          </div>
+        </div>
+
+        <!-- Vertical List of 3 Trail Cards -->
+        <div id="trail-list" class="flex flex-col gap-3">
+          <!-- Trail 1: Valle de las Tumbas -->
+          <article data-trail-name="valle de las tumbas alta montaña" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrBcSHLUUCQyfvy8em1LyoTF7Nu0N-KYOEq9Y7g8RApW91eVLX2idnGOsmQsJegk0PQjcBDuNUFUwqSJyCmqftut71ZlMOjPo-WCftY_gs51qXCCoDn2EMuqi97FmnwvkgLbL0n_H-ogDR2bLJDZtAm62ZfHl323mpAjOfNb92r0bKHn_K4_JNoGGFZx_C6iE3RaiE7WaXK0ymGvgmFaZTnKO-1JRmP3HfXedx4M4mU5KuPiS3gykRg-pbiSLw" alt="Paisaje volcánico de Valle de las Tumbas entre neblina" class="w-20 h-20 rounded-md object-cover shrink-0 bg-light-surface-container-high">
+              <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-headline text-title-md text-light-on-surface leading-snug" data-design-text-token="title-md">Valle de las Tumbas</h3>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span data-component-id="badge-difficulty-high" data-component-type="badge" data-component-variant="warning" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-amber-surface text-on-amber-surface font-label text-label-sm">
+                    <span data-design-text-token="label-sm">Alta montaña</span>
+                  </span>
+                  <span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">4.150 m s.n.m.</span>
+                </div>
+                <p class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">3.8 km • Mapa topográfico</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html" class="min-h-[48px] px-3 inline-flex items-center gap-1.5 font-label text-label-lg text-light-primary hover:underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">map</span>
+                <span data-design-text-token="label-lg">Abrir ruta</span>
+              </a>
+
+              <button type="button" data-pack-toggle data-downloaded="true" class="min-h-[48px] px-4 py-2 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-lg inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
+                <span data-design-text-token="label-lg">Descargado ✓</span>
+              </button>
+            </div>
+          </article>
+
+          <!-- Trail 2: Laguna Verde y Arenales -->
+          <article data-trail-name="laguna verde y arenales media" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrDePleEPMueSecpUMqi6WK90Egdj6Jq1CsFLj7DFPOjQm4mCe0dwHR3cGsT7dOFu9b89Xzd2AEIjNO0vDKy-zP9dJYTNMpdD7f2EaNx-EOq8OBy0F27C19oLEFaMW-qlFXrntogebrI0EyirURLTXrIr27N-2eRHVuf38C2LHrN7CpwGT_hm3Fcqo8PR-gAcbvcLNW9BRED_FQzO1cPBP3m23y92RlPgjrbX2OKjeYlcs42937ItpjfSVetdQ" alt="Laguna Verde rodeada de arenales volcánicos en el páramo" class="w-20 h-20 rounded-md object-cover shrink-0 bg-light-surface-container-high">
+              <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                <h3 class="font-headline text-title-md text-light-on-surface leading-snug" data-design-text-token="title-md">Laguna Verde y Arenales</h3>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span data-component-id="badge-status" data-component-type="badge" data-component-variant="status" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-light-secondary-container text-light-on-secondary-container font-label text-label-sm">
+                    <span data-design-text-token="label-sm">Media</span>
+                  </span>
+                  <span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">4.080 m s.n.m.</span>
+                </div>
+                <p class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">6.2 km • Disponible offline</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html" class="min-h-[48px] px-3 inline-flex items-center gap-1.5 font-label text-label-lg text-light-primary hover:underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">map</span>
+                <span data-design-text-token="label-lg">Vista previa</span>
+              </a>
+
+              <button type="button" data-pack-toggle data-downloaded="false" class="min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change hover:bg-light-surface-container-low">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download_for_offline</span>
+                <span data-design-text-token="label-lg">Descargar Pack</span>
+              </button>
+            </div>
+          </article>
+
+          <!-- Trail 3: Sendero Páramo de Letras -->
+          <article data-trail-name="sendero páramo de letras baja" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrCIPc4sob0P_bShWBW2CWk-P_R-QbG4NCN2S_8s6Cv16BLlD5QkqRo7anq4KFm3m5erG5RIYZHdrTSn_ewRRLoEweLd9eQie_5ZU7eCYxmuhauayEfmEZMQmTcPLpK6jI4CTSdzlz9vU9orcWsu20Cw_QfC0rtNt1HTkxuIjPBSJZsMwEVkzEiS1QiEzfdr-tsc4r4oJEFknYWss4su4RKvU33EU_lgA-fuAfv6eqLoLiqy6-S_D_tXzaeppnQ" alt="Sendero Páramo de Letras rodeado de frailejones" class="w-20 h-20 rounded-md object-cover shrink-0 bg-light-surface-container-high">
+              <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                <h3 class="font-headline text-title-md text-light-on-surface leading-snug" data-design-text-token="title-md">Sendero Páramo de Letras</h3>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span data-component-id="badge-difficulty-low" data-component-type="badge" data-component-variant="success" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-light-primary-container text-light-on-primary-container font-label text-label-sm">
+                    <span data-design-text-token="label-sm">Baja</span>
+                  </span>
+                  <span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">3.680 m s.n.m.</span>
+                </div>
+                <p class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">4.5 km • Mapa topográfico</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-light-outline-variant/50">
+              <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html" class="min-h-[48px] px-3 inline-flex items-center gap-1.5 font-label text-label-lg text-light-primary hover:underline">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">map</span>
+                <span data-design-text-token="label-lg">Abrir ruta</span>
+              </a>
+
+              <button type="button" data-pack-toggle data-downloaded="true" class="min-h-[48px] px-4 py-2 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-lg inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
+                <span data-design-text-token="label-lg">Descargado ✓</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Registro de Bitácora y Observaciones Offline del Trekking -->
+      <section class="flex flex-col gap-3" aria-labelledby="bitacora-heading">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <h2 id="bitacora-heading" class="font-headline text-title-md text-light-on-surface" data-design-text-token="title-md">
+              Bitácora y Observaciones Offline
+            </h2>
+            <p class="font-mono text-mono-sm text-light-on-surface-variant" data-design-text-token="mono-sm">
+              Sincronización local • 2 registros
+            </p>
+          </div>
+          <button id="toggle-log-form-btn" type="button" aria-expanded="false" class="min-h-[48px] px-4 py-2 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center gap-1.5 shrink-0 transition-colors duration-state-change ease-state-change hover:bg-on-moss-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-primary">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">edit_note</span>
+            <span data-design-text-token="label-lg">Nueva nota</span>
+          </button>
+        </div>
+
+        <!-- Collapsible Quick Observation Form -->
+        <form id="log-entry-form" class="hidden rounded-xl bg-light-surface-container-lowest/90 backdrop-blur-md border border-light-outline-variant p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-label text-label-sm text-light-primary" data-design-text-token="label-sm">
+              Registrar observación en ruta
+            </span>
+            <span class="font-mono text-mono-sm text-earth-brown tabular-nums" data-design-text-token="mono-sm">
+              GPS 3.980 m s.n.m.
+            </span>
+          </div>
+
+          <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Categoría de observación">
+            <button type="button" data-log-category="Fauna" aria-pressed="true" class="min-h-[48px] px-3.5 py-2 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-sm inline-flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px]" aria-hidden="true">pets</span>
+              <span data-design-text-token="label-sm">Fauna</span>
+            </button>
+            <button type="button" data-log-category="Flora" aria-pressed="false" class="min-h-[48px] px-3.5 py-2 rounded-full bg-light-surface-container-low border border-light-outline-variant text-light-on-surface font-label text-label-sm inline-flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px]" aria-hidden="true">eco</span>
+              <span data-design-text-token="label-sm">Flora</span>
+            </button>
+            <button type="button" data-log-category="Clima" aria-pressed="false" class="min-h-[48px] px-3.5 py-2 rounded-full bg-light-surface-container-low border border-light-outline-variant text-light-on-surface font-label text-label-sm inline-flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px]" aria-hidden="true">foggy</span>
+              <span data-design-text-token="label-sm">Clima</span>
+            </button>
+          </div>
+
+          <label for="log-note-input" class="sr-only">Detalle de la observación</label>
+          <textarea id="log-note-input" rows="2" placeholder="Ej. Avistamiento o estado del sendero..." class="w-full px-3.5 py-2.5 rounded-md bg-light-surface-container-lowest border border-light-outline-variant font-body text-body-md text-light-on-surface placeholder:text-light-outline focus:outline-none focus:border-light-primary focus:ring-1 focus:ring-light-primary"></textarea>
+
+          <button type="submit" class="w-full min-h-[48px] px-4 py-2.5 rounded-full bg-light-primary text-light-on-primary font-label text-label-lg inline-flex items-center justify-center gap-2 transition-colors duration-state-change ease-state-change hover:bg-on-moss-surface">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+            <span data-design-text-token="label-lg">Guardar en Bitácora</span>
+          </button>
+        </form>
+
+        <!-- Saved Offline Log Entries -->
+        <div id="bitacora-list" class="flex flex-col gap-2.5">
+          <article class="rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-light-primary-container text-light-on-primary-container font-label text-label-sm">
+                <span class="material-symbols-outlined text-[14px]" aria-hidden="true">pets</span>
+                <span data-design-text-token="label-sm">Fauna</span>
+              </span>
+              <span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">
+                4.090 m • Hoy 07:45
+              </span>
+            </div>
+            <h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">
+              Avistamiento de Chivito de Páramo
+            </h3>
+            <p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md">
+              Macho alimentándose en flor de frailejón cerca al desvío de Arenales.
+            </p>
+            <div class="flex items-center gap-1.5 text-on-moss-surface font-label text-label-sm">
+              <span class="material-symbols-outlined text-[15px]" aria-hidden="true">offline_pin</span>
+              <span data-design-text-token="label-sm">Guardado offline en dispositivo</span>
+            </div>
+          </article>
+
+          <article class="rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-surface text-on-amber-surface font-label text-label-sm">
+                <span class="material-symbols-outlined text-[14px]" aria-hidden="true">foggy</span>
+                <span data-design-text-token="label-sm">Clima</span>
+              </span>
+              <span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">
+                4.150 m • Hoy 06:20
+              </span>
+            </div>
+            <h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">
+              Banco de neblina densa en cresta
+            </h3>
+            <p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md">
+              Visibilidad menor a 25 m en Valle de las Tumbas; viento frío del sureste.
+            </p>
+            <div class="flex items-center gap-1.5 text-on-moss-surface font-label text-label-sm">
+              <span class="material-symbols-outlined text-[15px]" aria-hidden="true">offline_pin</span>
+              <span data-design-text-token="label-sm">Guardado offline en dispositivo</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation Bar (3 items, 48px+ touch targets) -->
+    <nav aria-label="Navegación principal" class="sticky bottom-0 z-20 bg-light-surface-container-lowest/90 backdrop-blur-md border-t border-light-outline-variant px-page-margin py-1.5 grid grid-cols-3 gap-2">
+      <a href="SenderosYModoOffline.html" aria-current="page" class="min-h-[48px] rounded-md bg-light-primary-container/60 text-light-primary flex flex-col items-center justify-center gap-0.5 py-1.5">
+        <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: &#39;FILL&#39; 1;" aria-hidden="true">hiking</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">Rutas</span>
+      </a>
+
+      <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html" class="min-h-[48px] rounded-md text-light-on-surface-variant hover:bg-light-surface-container-low flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors duration-state-change">
+        <span class="material-symbols-outlined text-[22px]" aria-hidden="true">center_focus_strong</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">Escáner IA</span>
+      </a>
+
+      <a href="../interpretacion-ambiental-chat/InterpretacionAmbientalYChatOffline.html#chat" class="min-h-[48px] rounded-md text-light-on-surface-variant hover:bg-light-surface-container-low flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors duration-state-change">
+        <span class="material-symbols-outlined text-[22px]" aria-hidden="true">forum</span>
+        <span class="font-label text-label-sm" data-design-text-token="label-sm">Chat Páramo</span>
+      </a>
+    </nav>
+  </div>
+
+  <script>
+    (function () {
+      const searchBtn = document.getElementById('toggle-search-btn');
+      const searchPanel = document.getElementById('trail-search-panel');
+      const searchInput = document.getElementById('trail-search-input');
+      const trailCards = document.querySelectorAll('[data-trail-name]');
+
+      if (searchBtn && searchPanel) {
+        searchBtn.addEventListener('click', function () {
+          const isHidden = searchPanel.classList.contains('hidden');
+          searchPanel.classList.toggle('hidden', !isHidden);
+          searchBtn.setAttribute('aria-expanded', String(isHidden));
+          if (isHidden && searchInput) {
+            searchInput.focus();
+          }
+        });
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener('input', function (e) {
+          const query = e.target.value.trim().toLowerCase();
+          trailCards.forEach(function (card) {
+            const name = card.getAttribute('data-trail-name') || '';
+            card.classList.toggle('hidden', query.length > 0 && !name.includes(query));
+          });
+        });
+      }
+
+      document.querySelectorAll('[data-pack-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const downloaded = btn.getAttribute('data-downloaded') === 'true';
+          const next = !downloaded;
+          btn.setAttribute('data-downloaded', String(next));
+          if (next) {
+            btn.className = 'min-h-[48px] px-4 py-2 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-lg inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change';
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span><span data-design-text-token="label-lg">Descargado ✓</span>';
+          } else {
+            btn.className = 'min-h-[48px] px-4 py-2 rounded-full bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-lg inline-flex items-center gap-1.5 transition-colors duration-state-change ease-state-change hover:bg-light-surface-container-low';
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">download_for_offline</span><span data-design-text-token="label-lg">Descargar Pack</span>';
+          }
+        });
+      });
+
+      // Bitácora & Observaciones Offline
+      const logFormBtn = document.getElementById('toggle-log-form-btn');
+      const logForm = document.getElementById('log-entry-form');
+      const logNoteInput = document.getElementById('log-note-input');
+      const logList = document.getElementById('bitacora-list');
+      let selectedCategory = 'Fauna';
+
+      if (logFormBtn && logForm) {
+        logFormBtn.addEventListener('click', function () {
+          const isHidden = logForm.classList.contains('hidden');
+          logForm.classList.toggle('hidden', !isHidden);
+          logFormBtn.setAttribute('aria-expanded', String(isHidden));
+          if (isHidden && logNoteInput) {
+            logNoteInput.focus();
+          }
+        });
+      }
+
+      document.querySelectorAll('[data-log-category]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          selectedCategory = chip.getAttribute('data-log-category') || 'Fauna';
+          document.querySelectorAll('[data-log-category]').forEach(function (other) {
+            const active = other === chip;
+            other.setAttribute('aria-pressed', String(active));
+            other.className = active
+              ? 'min-h-[48px] px-3.5 py-2 rounded-full bg-moss-surface text-on-moss-surface font-label text-label-sm inline-flex items-center gap-1.5'
+              : 'min-h-[48px] px-3.5 py-2 rounded-full bg-light-surface-container-low border border-light-outline-variant text-light-on-surface font-label text-label-sm inline-flex items-center gap-1.5';
+          });
+        });
+      });
+
+      if (logForm && logNoteInput && logList) {
+        logForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const note = logNoteInput.value.trim();
+          if (!note) return;
+          const iconName = selectedCategory === 'Fauna' ? 'pets' : (selectedCategory === 'Flora' ? 'eco' : 'foggy');
+          const badgeClass = selectedCategory === 'Clima'
+            ? 'bg-amber-surface text-on-amber-surface'
+            : 'bg-light-primary-container text-light-on-primary-container';
+          const entry = document.createElement('article');
+          entry.className = 'rounded-xl bg-light-surface-container-lowest/85 backdrop-blur-md border border-light-outline-variant p-3.5 flex flex-col gap-2';
+          entry.innerHTML =
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full ' + badgeClass + ' font-label text-label-sm">' +
+                '<span class="material-symbols-outlined text-[14px]" aria-hidden="true">' + iconName + '</span>' +
+                '<span data-design-text-token="label-sm">' + selectedCategory + '</span>' +
+              '</span>' +
+              '<span class="font-mono text-mono-sm text-light-on-surface-variant tabular-nums" data-design-text-token="mono-sm">3.980 m • Ahora</span>' +
+            '</div>' +
+            '<h3 class="font-headline text-title-sm text-light-on-surface" data-design-text-token="title-sm">Observación en ruta</h3>' +
+            '<p class="font-body text-body-md text-light-on-surface-variant text-pretty" data-design-text-token="body-md"></p>' +
+            '<div class="flex items-center gap-1.5 text-on-moss-surface font-label text-label-sm">' +
+              '<span class="material-symbols-outlined text-[15px]" aria-hidden="true">offline_pin</span>' +
+              '<span data-design-text-token="label-sm">Guardado offline en dispositivo</span>' +
+            '</div>';
+          entry.querySelector('p').textContent = note;
+          logList.prepend(entry);
+          logNoteInput.value = '';
+          logForm.classList.add('hidden');
+          if (logFormBtn) logFormBtn.setAttribute('aria-expanded', 'false');
+        });
+      }
+    })();
+  </script>
+
+
+</body></html>
