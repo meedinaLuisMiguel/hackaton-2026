@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --no-editable
 
 
 FROM python:3.15-slim AS runtime
@@ -28,8 +28,10 @@ RUN groupadd -g "${GID}" paramo \
 WORKDIR /opt/app
 
 COPY --from=builder --chown=paramo:paramo /opt/app/.venv /opt/app/.venv
+COPY --from=builder --chown=paramo:paramo /opt/app/src /opt/app/src
 
 ENV PATH="/opt/app/.venv/bin:$PATH" \
+    PYTHONPATH="/opt/app/src" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
