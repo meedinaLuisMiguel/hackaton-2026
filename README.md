@@ -1,8 +1,60 @@
-# 🏔️ Guía de Páramo Sin Señal — Asistente IA de Alta Montaña
+# 🏔️ Guía de Páramo Sin Señal — PNN Los Nevados
 
-MVP desarrollado para la hackatón **INNOVA GENERACIONES** (Universidad de Caldas & ACOPI Caldas). Es una aplicación web *offline-first* diseñada para acompañar a senderistas y guías en ecosistemas de páramo y alta montaña andina sin depender de conexión a internet.
+MVP desarrollado para la hackatón **INNOVA GENERACIONES** (Universidad de Caldas & ACOPI Caldas). Es una aplicación web *mobile-first* y **100% offline-first** diseñada para la interpretación ambiental y la seguridad en alta montaña en el **Parque Nacional Natural Los Nevados (Colombia)** sin depender de internet ni APIs de pago.
 
-### ✨ Funcionalidades principales
-* **Catálogo Offline y Radar GPS:** Descarga previa de rutas de alta montaña y detección automática de pisos térmicos y especies probables según la altitud del dispositivo.
-* **Interpretación Visual Multimodal:** Identificación de flora y fauna endémica mediante modelos locales de visión artificial.
-* **Chat Científico Local (RAG):** Respuestas rápidas y verificadas sobre biodiversidad, conservación y seguridad en montaña ejecutadas 100 % en local con **Ollama**, **FastAPI** y **React**.
+## ✨ Funcionalidades principales
+
+- **Radar GPS por Altitud y Pisos Térmicos:** Lectura GNSS del dispositivo + simulador de altitud (`2.300 m` a `4.800 m`) con cálculo automático de piso térmico, especies probables y riesgo de soroche.
+- **Catálogo Oficial PNNN y Bitácora Offline:** 3 corredores verificados (*Brisas – Valle de las Tumbas*, *Cisne – Laguna Verde* y *Potosí – Laguna del Otún*) con estaciones, reglas obligatorias, descarga offline y bitácora de campo persistida en el dispositivo.
+- **Lente de Páramo (Visión IA Local):** Identificación de especies mediante cámara, carga de foto o muestras rápidas locales conectadas a Ollama multimodal (`gemma3:4b`) con respaldo offline verificado.
+- **Guía Científico (Chat RAG Offline):** Asistente contextualizado en `pnnn_knowledge.json` con detección prioritaria de alertas médicas/volcánicas y respuestas concisas.
+- **Protegiendo la Vida (Triaje y SOS):** Triaje interactivo de *Soroche*, *Hipotermia* y *Seguridad Volcánica*, baliza SOS satelital simulada y directorio de emergencias de Caldas offline.
+
+## 🚀 Cómo ejecutar
+
+### Opción A: Docker Compose (Recomendado)
+
+```bash
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173` (Nginx con proxy `/api/` hacia el backend)
+- Backend API: `http://localhost:8000` (Swagger en `/docs`)
+- Modelo Ollama preconfigurado: `gemma3:4b`
+
+### Opción B: Desarrollo nativo en Windows (`uv` + `pnpm` + Ollama local)
+
+1. **Ollama local (opcional, tiene fallback offline si no está encendido):**
+   ```powershell
+   ollama pull gemma3:4b
+   ollama serve
+   ```
+2. **Backend (puerto 8000):**
+   ```powershell
+   cd backend
+   uv sync
+   uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+3. **Frontend (puerto 5173):**
+   ```powershell
+   cd frontend
+   pnpm install
+   pnpm dev
+   ```
+
+## ✅ Verificación y Calidad
+
+### Backend (`ruff`, `ty`, `pytest`)
+```powershell
+cd backend
+uv run ruff check src tests
+uv run ty check
+uv run pytest -v
+```
+
+### Frontend (`oxlint`, `tsc`, `vite build`)
+```powershell
+cd frontend
+pnpm lint
+pnpm build
+```
