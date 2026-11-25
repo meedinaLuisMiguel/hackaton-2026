@@ -72,7 +72,12 @@ export const OFFLINE_PISOS: PisoTermico[] = [
     max_m: 3200,
     temp: '10°C - 14°C',
     descripcion: 'Selva de niebla con árboles retorcidos, musgos y transición hacia la palma de cera.',
-    especies_clave: ['Oso de anteojos', 'Loro orejiamarillo', 'Palma de cera'],
+    especies_clave: [
+      'Oso de Anteojos',
+      'Loro Orejiamarillo',
+      'Palma de Cera del Quindío',
+      'Danta de Montaña',
+    ],
   },
   {
     piso: 'Subpáramo',
@@ -80,7 +85,7 @@ export const OFFLINE_PISOS: PisoTermico[] = [
     max_m: 3500,
     temp: '7°C - 10°C',
     descripcion: 'Arbustos bajos, romeros de páramo y mortiños; zona de alta actividad de polinizadores.',
-    especies_clave: ['Romero de páramo', 'Chivito de páramo', 'Danta de montaña'],
+    especies_clave: ['Romero de Páramo', 'Chivito de Páramo', 'Danta de Montaña', 'Oso de Anteojos'],
   },
   {
     piso: 'Páramo Propiamente Dicho',
@@ -88,7 +93,13 @@ export const OFFLINE_PISOS: PisoTermico[] = [
     max_m: 4100,
     temp: '4°C - 7°C',
     descripcion: 'Fábrica de agua dominada por frailejonales, pajonales y turberas esponjosas.',
-    especies_clave: ['Frailejón del Ruiz', 'Chivito de páramo', 'Pato andino'],
+    especies_clave: [
+      'Frailejón del Ruiz',
+      'Chivito de Páramo',
+      'Pato Andino',
+      'Zorro de Páramo',
+      'Musgo Turbero',
+    ],
   },
   {
     piso: 'Superpáramo',
@@ -96,7 +107,7 @@ export const OFFLINE_PISOS: PisoTermico[] = [
     max_m: 4800,
     temp: '0°C - 3°C',
     descripcion: 'Tundra alpina de arenas volcánicas, líquenes y plantas almohadilla antes del glaciar.',
-    especies_clave: ['Cacho de venado', 'Cóndor de los Andes', 'Líquenes crustáceos'],
+    especies_clave: ['Cacho de Venado', 'Cóndor de los Andes', 'Zorro de Páramo', 'Frailejón del Ruiz'],
   },
 ]
 
@@ -107,6 +118,7 @@ export const OFFLINE_ESPECIES: Especie[] = [
     nombre_cientifico: 'Espeletia hartwegiana',
     tipo: 'Flora',
     estado: 'Especie Clave • Protegida',
+    pisos: ['Páramo Propiamente Dicho', 'Superpáramo'],
     rol_ecologico:
       'Sus hojas vellosas atrapan gotas de la neblina y regulan el agua que abastece a Caldas y el Eje Cafetero. Refugia hasta 150 especies.',
     alerta_conservacion:
@@ -118,6 +130,7 @@ export const OFFLINE_ESPECIES: Especie[] = [
     nombre_cientifico: 'Oxypogon stubelii',
     tipo: 'Fauna',
     estado: 'Endémico PNN Los Nevados • Vulnerable',
+    pisos: ['Subpáramo', 'Páramo Propiamente Dicho', 'Superpáramo'],
     rol_ecologico:
       'Colibrí exclusivo de los páramos del Nevado del Ruiz. Se posa en las flores de frailejón para ahorrar energía y usa su lana para hacer nidos.',
     alerta_conservacion: 'Observar en silencio a distancia. Prohibido el uso de flash.',
@@ -128,7 +141,9 @@ export const OFFLINE_ESPECIES: Especie[] = [
     nombre_cientifico: 'Vultur gryphus',
     tipo: 'Fauna',
     estado: 'En Peligro',
-    rol_ecologico: 'Carroñero supremo que mantiene limpio el ecosistema de alta montaña.',
+    pisos: ['Páramo Propiamente Dicho', 'Superpáramo'],
+    rol_ecologico:
+      'Carroñero supremo que mantiene limpio el ecosistema de alta montaña y planea sobre corrientes térmicas volcánicas.',
     alerta_conservacion: 'No dejar ningún residuo orgánico ni basura en la montaña.',
   },
   {
@@ -137,10 +152,105 @@ export const OFFLINE_ESPECIES: Especie[] = [
     nombre_cientifico: 'Tremarctos ornatus',
     tipo: 'Fauna',
     estado: 'Vulnerable',
+    pisos: ['Bosque Altoandino', 'Subpáramo'],
     rol_ecologico:
-      'Jardinero del bosque altoandino y páramo; dispersa semillas y abre claros en la vegetación.',
+      'Único úrsido de Sudamérica; jardinero del bosque altoandino y páramo que dispersa semillas y abre claros en la vegetación.',
     alerta_conservacion:
-      'Mantener distancia segura y reportar avistamientos a guardaparques al descender.',
+      'Mantener distancia segura (mínimo 50 m), no alimentar y reportar avistamientos a guardaparques al descender.',
+  },
+  {
+    id: 'danta',
+    nombre_comun: 'Danta de Montaña (Tapir Andino)',
+    nombre_cientifico: 'Tapirus pinchaque',
+    tipo: 'Fauna',
+    estado: 'En Peligro • Especie Paraguas',
+    pisos: ['Bosque Altoandino', 'Subpáramo'],
+    rol_ecologico:
+      'Mamífero herbívoro más grande del páramo; abre trochas naturales y dispersa semillas de palma y arbustos andinos.',
+    alerta_conservacion:
+      'No bloquear sus senderos cercanos a quebradas ni hacer ruido excesivo en zonas de niebla.',
+  },
+  {
+    id: 'loro',
+    nombre_comun: 'Loro Orejiamarillo',
+    nombre_cientifico: 'Ognorhynchus icterotis',
+    tipo: 'Fauna',
+    estado: 'Vulnerable • Dependiente de Palma de Cera',
+    pisos: ['Bosque Altoandino'],
+    rol_ecologico:
+      'Habita bandadas en bosques de niebla y anida exclusivamente en troncos huecos de palma de cera.',
+    alerta_conservacion:
+      'Proteger los bosques de palma de cera y evitar drones o ruido cerca de zonas de anidación.',
+  },
+  {
+    id: 'palma',
+    nombre_comun: 'Palma de Cera del Quindío',
+    nombre_cientifico: 'Ceroxylon quindiuense',
+    tipo: 'Flora',
+    estado: 'Árbol Nacional • En Peligro',
+    pisos: ['Bosque Altoandino'],
+    rol_ecologico:
+      'Palma más alta del mundo (hasta 60 m); sostiene cadenas tróficas de aves como el loro orejiamarillo en el bosque altoandino.',
+    alerta_conservacion: 'Prohibido cortar sus cogollos o dañar su corteza cerosa.',
+  },
+  {
+    id: 'pato',
+    nombre_comun: 'Pato Andino (Pato Paramuno)',
+    nombre_cientifico: 'Anas andium',
+    tipo: 'Fauna',
+    estado: 'Residente Altoandino • Indicador de Humedales',
+    pisos: ['Páramo Propiamente Dicho'],
+    rol_ecologico:
+      'Habita lagunas glaciares como Otún y Laguna Verde; regula insectos acuáticos y macrófitas de turberas.',
+    alerta_conservacion:
+      'No acercarse a las orillas de lagunas Ramsar ni contaminar el agua con bloqueadores o residuos.',
+  },
+  {
+    id: 'romero',
+    nombre_comun: 'Romero de Páramo',
+    nombre_cientifico: 'Diplostephium rosmarinifolium',
+    tipo: 'Flora',
+    estado: 'Nativa de Subpáramo',
+    pisos: ['Subpáramo', 'Páramo Propiamente Dicho'],
+    rol_ecologico:
+      'Arbusto aromático de hojas coriáceas que estabiliza suelos volcánicos y ofrece néctar a abejorros y colibríes.',
+    alerta_conservacion: 'No arrancar ramas para fogatas ni infusiones dentro del parque.',
+  },
+  {
+    id: 'cacho',
+    nombre_comun: 'Cacho de Venado',
+    nombre_cientifico: 'Loricaria complanata',
+    tipo: 'Flora',
+    estado: 'Especialista de Superpáramo',
+    pisos: ['Superpáramo'],
+    rol_ecologico:
+      'Arbusto rastrero de tallos planos que resiste heladas nocturnas y fija arenales volcánicos expuestos al viento.',
+    alerta_conservacion:
+      'Caminar exclusivamente sobre el sendero marcado; su crecimiento es extremadamente lento.',
+  },
+  {
+    id: 'zorro',
+    nombre_comun: 'Zorro de Páramo (Lobo Colorado)',
+    nombre_cientifico: 'Lycalopex culpaeus',
+    tipo: 'Fauna',
+    estado: 'Cánido Nativo Altoandino',
+    pisos: ['Páramo Propiamente Dicho', 'Superpáramo'],
+    rol_ecologico:
+      'Depredador mediano que controla poblaciones de roedores y conejos de páramo, manteniendo el equilibrio del pajonal.',
+    alerta_conservacion:
+      'Nunca ofrecerle comida ni acercarse para fotografiarlo; evita habituarlo a humanos.',
+  },
+  {
+    id: 'musgo',
+    nombre_comun: 'Musgo Turbero (Colchón de Agua)',
+    nombre_cientifico: 'Sphagnum magellanicum',
+    tipo: 'Flora',
+    estado: 'Especie Clave Hídrica',
+    pisos: ['Subpáramo', 'Páramo Propiamente Dicho'],
+    rol_ecologico:
+      'Absorbe hasta 20 veces su peso en agua de lluvia y neblina, formando las turberas que alimentan los ríos del Eje Cafetero.',
+    alerta_conservacion:
+      'Prohibido pisar turberas y humedales; una pisada compacta el suelo durante décadas.',
   },
 ]
 
@@ -158,11 +268,7 @@ export const OFFLINE_PROTOCOLOS: Record<string, ProtocoloVida> = {
   },
   hipotermia: {
     titulo: 'Protocolo Prevención de Hipotermia',
-    sintomas: [
-      'Temblores incontrolables',
-      'Torpeza en manos',
-      'Habla arrastrada o confusión',
-    ],
+    sintomas: ['Temblores incontrolables', 'Torpeza en manos', 'Habla arrastrada o confusión'],
     accion_inmediata:
       '1. Refugiar del viento. 2. Cambiar ropa húmeda por prendas secas (sistema 3 capas). 3. Dar bebidas tibias azucaradas si está consciente. 4. Descender de inmediato.',
   },
@@ -269,7 +375,7 @@ export function calculateOfflineRadar(altitud_m: number): RadarResponse {
         temp: '15°C - 20°C',
         descripcion:
           'Franja de transición cafetera y andina previa al ingreso al Bosque Altoandino del PNN Los Nevados.',
-        especies_clave: ['Palma de cera', 'Oso de anteojos'],
+        especies_clave: ['Palma de Cera del Quindío', 'Oso de Anteojos'],
       }
     } else {
       piso = {
@@ -279,19 +385,23 @@ export function calculateOfflineRadar(altitud_m: number): RadarResponse {
         temp: '-4°C - 0°C',
         descripcion:
           'Casquete glaciar y nieves perpetuas. Acceso turístico restringido por riesgo volcánico e hipotermia.',
-        especies_clave: ['Líquenes crustáceos', 'Cóndor de los Andes'],
+        especies_clave: ['Cóndor de los Andes', 'Cacho de Venado'],
       }
     }
   }
 
+  const matchedByPiso = OFFLINE_ESPECIES.filter((sp) => sp.pisos.includes(piso.piso))
   const terms = piso.especies_clave.map((item) => item.toLowerCase())
-  const matched = OFFLINE_ESPECIES.filter((sp) => {
-    const name = sp.nombre_comun.toLowerCase()
-    return terms.some((term) => name.includes(term) || term.includes(name))
-  })
-  if (piso.piso.toLowerCase().includes('páramo') && !matched.some((s) => s.id === 'frailejon')) {
-    matched.unshift(OFFLINE_ESPECIES[0])
-  }
+  const matched =
+    matchedByPiso.length > 0
+      ? matchedByPiso
+      : OFFLINE_ESPECIES.filter((sp) =>
+          terms.some(
+            (term) =>
+              sp.nombre_comun.toLowerCase().includes(term) ||
+              term.includes(sp.nombre_comun.toLowerCase()),
+          ),
+        )
 
   let riesgo_soroche: RiesgoSoroche = 'Bajo'
   let recomendacion_seguridad =
@@ -313,7 +423,7 @@ export function calculateOfflineRadar(altitud_m: number): RadarResponse {
   return {
     altitud_m,
     piso_termico: piso,
-    especies_probables: matched.length > 0 ? matched : OFFLINE_ESPECIES.slice(0, 2),
+    especies_probables: matched.length > 0 ? matched : OFFLINE_ESPECIES.slice(0, 3),
     riesgo_soroche,
     recomendacion_seguridad,
   }
@@ -325,6 +435,18 @@ export function buildOfflineChatReply(message: string, altitud_m: number): ChatR
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
+  const inDomain = [
+    'paramo', 'nevado', 'ruiz', 'kumanday', 'santa isabel', 'tolima', 'caldas', 'risaralda',
+    'otun', 'brisas', 'tumbas', 'cisne', 'laguna', 'ruta', 'sendero', 'caminata', 'altitud',
+    'altura', 'msnm', 'piso', 'clima', 'frio', 'agua', 'turbera', 'frailejon', 'espeletia',
+    'chivito', 'colibri', 'condor', 'oso', 'anteojos', 'danta', 'tapir', 'loro', 'palma',
+    'pato', 'romero', 'cacho', 'zorro', 'musgo', 'sphagnum', 'ave', 'flora', 'fauna',
+    'especie', 'animal', 'planta', 'parque', 'guia', 'guardaparque', 'regla', 'reserva',
+    'horario', 'ropa', 'capa', 'hidratacion', 'dolor de cabeza', 'soroche', 'mareo', 'nausea',
+    'vomito', 'hipotermia', 'temblor', 'falta de aire', 'emergencia', 'auxilio', 'sos',
+    'volcan', 'ceniza', 'azufre', 'rescate', 'evacuacion', 'hola', 'buenas', 'ayuda', 'gracias',
+  ].some((term) => q.includes(term))
+
   const isSafety = [
     'dolor de cabeza',
     'soroche',
@@ -333,56 +455,98 @@ export function buildOfflineChatReply(message: string, altitud_m: number): ChatR
     'vomito',
     'hipotermia',
     'temblor',
-    'frio',
+    'frio extremo',
     'falta de aire',
     'volcan',
     'ceniza',
   ].some((k) => q.includes(k))
 
   if (isSafety) {
-    const proto = q.includes('hipotermia') || q.includes('temblor') || q.includes('frio')
-      ? OFFLINE_PROTOCOLOS.hipotermia
-      : q.includes('volcan') || q.includes('ceniza')
-        ? OFFLINE_PROTOCOLOS.volcanico
-        : OFFLINE_PROTOCOLOS.soroche
+    const proto =
+      q.includes('hipotermia') || q.includes('temblor')
+        ? OFFLINE_PROTOCOLOS.hipotermia
+        : q.includes('volcan') || q.includes('ceniza')
+          ? OFFLINE_PROTOCOLOS.volcanico
+          : OFFLINE_PROTOCOLOS.soroche
 
     return {
-      reply: `Alerta prioritaria a ${altitud_m.toLocaleString('es-CO')} m s.n.m. — ${proto.titulo}:\n\n${proto.accion_inmediata}`,
+      agent_name: 'Kumanday',
+      reply: `Alerta prioritaria a ${altitud_m.toLocaleString('es-CO')} m s.n.m. — ${proto.titulo}:\n${proto.accion_inmediata}`,
       sources: ['Protocolo de Vida Offline'],
-      model: 'offline-fallback-js',
+      tools_used: ['activar_protocolo_vida'],
+      suggested_action: 'open_safety',
+      out_of_domain: false,
+      model: 'offline-respuesta-local-sin-servidor',
       fallback_used: true,
       safety_alert: true,
     }
   }
 
-  if (q.includes('frailejon') || q.includes('agua')) {
-    const sp = OFFLINE_ESPECIES[0]
+  if (!inDomain) {
     return {
-      reply: `${sp.nombre_comun} (${sp.nombre_cientifico}): ${sp.rol_ecologico}\n\nAlerta de conservación: ${sp.alerta_conservacion}`,
-      sources: [sp.nombre_comun],
-      model: 'offline-fallback-js',
+      agent_name: 'Kumanday',
+      reply: 'No tengo el motor local disponible para responder eso ahora. Mi especialidad es el Parque Nacional Natural Los Nevados; puedo ayudarte con sus especies, rutas, altitud y seguridad.',
+      sources: ['Asistencia general local no disponible'],
+      tools_used: ['consulta_general'],
+      suggested_action: 'none',
+      out_of_domain: true,
+      model: 'offline-respuesta-local-sin-servidor',
       fallback_used: true,
       safety_alert: false,
     }
   }
 
-  if (q.includes('ave') || q.includes('colibri') || q.includes('chivito') || q.includes('condor')) {
+  const matchedSpecies = OFFLINE_ESPECIES.find((sp) => {
+    const common = sp.nombre_comun
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    return q.includes(sp.id) || common.split(' ').some((w) => w.length > 4 && q.includes(w))
+  })
+
+  if (matchedSpecies || q.includes('agua')) {
+    const sp = matchedSpecies ?? OFFLINE_ESPECIES[0]
     return {
+      agent_name: 'Kumanday',
+      reply: `${sp.nombre_comun} (${sp.nombre_cientifico}): ${sp.rol_ecologico}\n\n• Conservación: ${sp.alerta_conservacion}`,
+      sources: [sp.nombre_comun],
+      tools_used: ['consultar_especie'],
+      suggested_action: 'none',
+      out_of_domain: false,
+      model: 'offline-respuesta-local-sin-servidor',
+      fallback_used: true,
+      safety_alert: false,
+    }
+  }
+
+  if (q.includes('ave') || q.includes('colibri')) {
+    return {
+      agent_name: 'Kumanday',
       reply:
-        'En esta alta montaña destacan el Chivito de Páramo (Oxypogon stubelii), colibrí endémico que anida con lana de frailejón, y el Cóndor de los Andes (Vultur gryphus) en vuelos altos.\n\nObsérvalos en silencio a distancia, sin flash y sin dejar residuos orgánicos.',
-      sources: ['Chivito de Páramo', 'Cóndor de los Andes'],
-      model: 'offline-fallback-js',
+        'En el PNN Los Nevados habitan el Chivito de Páramo (Oxypogon stubelii), el Cóndor de los Andes (Vultur gryphus), el Pato Andino y el Loro Orejiamarillo en bosque altoandino.\n\n• Obsérvalos en silencio, sin flash y sin dejar residuos.',
+      sources: ['Catálogo de Aves PNNN'],
+      tools_used: ['consultar_especie'],
+      suggested_action: 'none',
+      out_of_domain: false,
+      model: 'offline-respuesta-local-sin-servidor',
       fallback_used: true,
       safety_alert: false,
     }
   }
 
   if (q.includes('regla') || q.includes('tumbas') || q.includes('brisas') || q.includes('ruta')) {
-    const r = OFFLINE_RUTAS[0]
+    const r =
+      OFFLINE_RUTAS.find((item) => q.includes('otun') && item.id.includes('otun')) ??
+      OFFLINE_RUTAS.find((item) => q.includes('cisne') && item.id.includes('cisne')) ??
+      OFFLINE_RUTAS[0]
     return {
-      reply: `${r.nombre} (${r.altitud_rango}, ${r.distancia_km} km): ${r.reglas}\n\nEstaciones clave: ${r.estaciones.slice(0, 2).join(' ')}`,
+      agent_name: 'Kumanday',
+      reply: `${r.nombre} (${r.altitud_rango}, ${r.distancia_km} km):\n• Reglas: ${r.reglas}\n• Primera estación: ${r.estaciones[0]}`,
       sources: [r.nombre],
-      model: 'offline-fallback-js',
+      tools_used: ['consultar_ruta'],
+      suggested_action: 'open_rutas',
+      out_of_domain: false,
+      model: 'offline-respuesta-local-sin-servidor',
       fallback_used: true,
       safety_alert: false,
     }
@@ -390,33 +554,54 @@ export function buildOfflineChatReply(message: string, altitud_m: number): ChatR
 
   const radar = calculateOfflineRadar(altitud_m)
   return {
-    reply: `A ${altitud_m.toLocaleString('es-CO')} m s.n.m. estás en ${radar.piso_termico.piso} (${radar.piso_termico.temp}): ${radar.piso_termico.descripcion}\n\nEspecies clave: ${radar.piso_termico.especies_clave.join(', ')}. ${radar.recomendacion_seguridad}`,
+    agent_name: 'Kumanday',
+    reply: `A ${altitud_m.toLocaleString('es-CO')} m s.n.m. estás en ${radar.piso_termico.piso} (${radar.piso_termico.temp}): ${radar.piso_termico.descripcion}\n\n• Especies clave: ${radar.especies_probables
+      .slice(0, 4)
+      .map((s) => s.nombre_comun)
+      .join(', ')}.\n• Seguridad: ${radar.recomendacion_seguridad}`,
     sources: [`Radar (${radar.piso_termico.piso})`],
-    model: 'offline-fallback-js',
+    tools_used: ['consultar_radar_altitud'],
+    suggested_action: 'none',
+    out_of_domain: false,
+    model: 'offline-respuesta-local-sin-servidor',
     fallback_used: true,
     safety_alert: false,
   }
 }
 
-export function buildOfflineVisionFallback(
-  hint: string | undefined,
-  altitud_m: number,
-): VisionResponse {
-  const sp =
-    OFFLINE_ESPECIES.find((item) => hint && item.id === hint) ??
-    calculateOfflineRadar(altitud_m).especies_probables[0]
+export function buildOfflineVisionFallback(hint: string | undefined): VisionResponse {
+  const sampleId = hint?.startsWith('sample:') ? hint.slice('sample:'.length) : undefined
+  const sp = sampleId ? OFFLINE_ESPECIES.find((item) => item.id === sampleId) : undefined
+
+  if (sp) {
+    return {
+      en_pnnn: true,
+      nombre_comun: sp.nombre_comun,
+      nombre_cientifico: sp.nombre_cientifico,
+      tipo: sp.tipo,
+      estado: sp.estado,
+      rol_ecologico: sp.rol_ecologico,
+      alerta_conservacion: sp.alerta_conservacion,
+      confianza: 'Catálogo Offline Verificado',
+      descripcion_ia: `Ficha científica offline cargada para ${sp.nombre_comun}: ${sp.rol_ecologico}`,
+      model: 'offline-fallback-js',
+      fallback_used: true,
+    }
+  }
 
   return {
-    nombre_comun: sp.nombre_comun,
-    nombre_cientifico: sp.nombre_cientifico,
-    tipo: sp.tipo,
-    estado: sp.estado,
-    rol_ecologico: sp.rol_ecologico,
-    alerta_conservacion: sp.alerta_conservacion,
-    confianza: hint ? 'Catálogo Offline Verificado' : 'Respaldo por Altitud',
-    descripcion_ia: hint
-      ? `Ficha científica offline cargada para ${sp.nombre_comun}: ${sp.rol_ecologico}`
-      : `Sin conexión al motor visual local. A ${altitud_m.toLocaleString('es-CO')} m s.n.m. es probable encontrar ${sp.nombre_comun}.`,
+    en_pnnn: false,
+    nombre_comun: 'Motor visual IA no disponible',
+    nombre_cientifico: 'Verificación visual en espera',
+    tipo: 'Sin Confirmación',
+    estado: 'Ollama multimodal offline',
+    rol_ecologico:
+      'Para evitar identificaciones erróneas sobre fotos personalizadas, Kumanday no asigna especies sin el motor visual activo.',
+    alerta_conservacion:
+      'Enciende el backend con Ollama (gemma3:4b) para analizar fotos externas o explora el catálogo de 12 especies.',
+    confianza: 'Sin confirmación',
+    descripcion_ia:
+      'La fotografía fue validada localmente, pero no se pudo contactar al modelo visual en este momento.',
     model: 'offline-fallback-js',
     fallback_used: true,
   }

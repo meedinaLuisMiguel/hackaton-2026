@@ -30,7 +30,7 @@ def _select_thermal_belt(altitud_m: int, belts: list[PisoTermico]) -> PisoTermic
                 "Franja de transición cafetera y andina previa al ingreso "
                 "al Bosque Altoandino del Parque Nacional Natural Los Nevados."
             ),
-            especies_clave=["Palma de cera", "Oso de anteojos"],
+            especies_clave=["Palma de Cera del Quindío", "Oso de Anteojos"],
         )
 
     for belt in belts:
@@ -46,7 +46,7 @@ def _select_thermal_belt(altitud_m: int, belts: list[PisoTermico]) -> PisoTermic
             "Casquete glaciar y nieves perpetuas. El acceso turístico está "
             "restringido por actividad volcánica y riesgo extremo de hipotermia."
         ),
-        especies_clave=["Líquenes crustáceos", "Cóndor de los Andes"],
+        especies_clave=["Cóndor de los Andes", "Cacho de Venado"],
     )
 
 
@@ -54,21 +54,21 @@ def _match_species_for_belt(
     belt: PisoTermico,
     all_species: list[Especie],
 ) -> list[Especie]:
-    """Match verified species cards relevant to the active thermal belt."""
+    """Match verified species cards belonging to the active thermal belt."""
+    matched = [sp for sp in all_species if belt.piso in sp.pisos]
+    if matched:
+        return matched
+
     belt_terms = [term.lower() for term in belt.especies_clave]
-    matched: list[Especie] = []
-    for sp in all_species:
-        name_lower = sp.nombre_comun.lower()
-        if any(term in name_lower or name_lower in term for term in belt_terms):
-            matched.append(sp)
-
-    # Ensure Frailejón appears in Páramo and Superpáramo transitions if not already matched
-    if "páramo" in belt.piso.lower() and not any(s.id == "frailejon" for s in matched):
-        frailejon = next((s for s in all_species if s.id == "frailejon"), None)
-        if frailejon is not None:
-            matched.insert(0, frailejon)
-
-    return matched if matched else all_species[:2]
+    fallback = [
+        sp
+        for sp in all_species
+        if any(
+            term in sp.nombre_comun.lower() or sp.nombre_comun.lower() in term
+            for term in belt_terms
+        )
+    ]
+    return fallback if fallback else all_species[:3]
 
 
 def _soroche_risk(

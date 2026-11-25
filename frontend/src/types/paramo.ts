@@ -32,6 +32,7 @@ export interface Especie {
   nombre_cientifico: string
   tipo: 'Flora' | 'Fauna'
   estado: string
+  pisos: string[]
   rol_ecologico: string
   alerta_conservacion: string
 }
@@ -47,12 +48,14 @@ export interface RadarResponse {
 }
 
 export interface HealthResponse {
+  agent_name: string
   status: 'ok' | 'degraded'
   ollama_connected: boolean
   ollama_url: string
   configured_model: string
   configured_vision_model: string
   active_models: string[]
+  species_count: number
   offline_ready: boolean
 }
 
@@ -61,18 +64,38 @@ export interface ChatTurn {
   content: string
 }
 
+export type AgentSuggestedAction = 'none' | 'open_safety' | 'open_rutas' | 'open_vision'
+
 export interface ChatResponse {
+  agent_name: string
   reply: string
   sources: string[]
+  tools_used: string[]
+  suggested_action: AgentSuggestedAction
+  out_of_domain: boolean
   model: string
   fallback_used: boolean
   safety_alert: boolean
 }
 
+export interface UiChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+  toolsUsed?: string[]
+  suggestedAction?: AgentSuggestedAction
+  outOfDomain?: boolean
+  model?: string
+  fallbackUsed?: boolean
+  safetyAlert?: boolean
+}
+
 export interface VisionResponse {
+  en_pnnn: boolean
   nombre_comun: string
   nombre_cientifico: string
-  tipo: 'Flora' | 'Fauna' | 'Entorno'
+  tipo: 'Flora' | 'Fauna' | 'Entorno' | 'Fuera de Ecosistema' | 'Sin Confirmación'
   estado: string
   rol_ecologico: string
   alerta_conservacion: string

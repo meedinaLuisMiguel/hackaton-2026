@@ -167,7 +167,14 @@ pnpm build
 ### Fase 1 — Implementación inicial y validación local (Completada)
 - [x] Análisis del proyecto completo (`prompt_maestro_setup_agente_ia.md`, `UX_UI/`, `docker-compose.yml`, `backend/`, `frontend/`, `ollama/`).
 - [x] Definición de `pnnn_knowledge.json` y endpoints FastAPI en `backend/src/backend/`.
-- [x] Implementación de suite de 15 pruebas en `backend/tests/` (`ruff`, `ty` y `pytest` pasando al 100 %).
-- [x] Construcción de la UI *mobile-first* en `frontend/src/` con 4 imágenes locales en `frontend/public/samples/` y `lucide-react` (`oxlint` 0 errores/0 warnings y `tsc -b && vite build` exitosos).
+- [x] Implementación de suite de pruebas en `backend/tests/`.
+- [x] Construcción de la UI *mobile-first* en `frontend/src/` con 4 imágenes locales en `frontend/public/samples/` y `lucide-react`.
 - [x] Configuración de proxy `/api/` en `frontend/nginx.conf`, `frontend/vite.config.ts` y healthcheck/volumen en `docker-compose.yml`.
-- [ ] Pendiente de prueba en vivo por el usuario: arranque con Docker Desktop (`docker compose up --build`) e inferencia real contra `ollama` (`gemma3:4b`).
+
+### Fase 2 — Agente Kumanday, Visión Estricta, 12 Especies y Optimización (Completada)
+- [x] Identidad propia: **Kumanday** (Agente Guardaparques e Intérprete Científico del PNN Los Nevados).
+- [x] Orquestación de agente en `rag_engine.py`: guardrail estricto de dominio PNNN, ejecución determinista de herramientas (`consultar_radar_altitud`, `consultar_especie`, `consultar_ruta`, `activar_protocolo_vida`), acciones sugeridas en UI (`open_safety`, `open_rutas`) y formato conciso anti-divagación (`<= 110` palabras, `temperature: 0.1`, `repeat_penalty: 1.15`).
+- [x] Expansión del catálogo verificado a **12 especies nativas** (flora y fauna de los 4 pisos térmicos) + endpoint `GET /api/especies` y explorador offline en `VisionLens.tsx`.
+- [x] Blindaje de Visión IA: validación estricta de formato (`JPG/PNG/WebP`, `<= 8 MB` en backend / `10 MB` en cliente, `>= 32x32` px, `ImageOps.exif_transpose`), Ollama `format: "json"`, bloqueo de falsos positivos fuera del ecosistema (ej. tigre vs oso de anteojos) y rechazo honesto cuando Ollama está offline sin `hint` verificado.
+- [x] Corrección de botones y estado UI: eliminación definitiva del bug de mensaje duplicado en React `<StrictMode>` levantando el estado del chat a `App.tsx` con mutex (`sendingChatRef`), preservación de pestañas al navegar, botón `"Re-analizar captura"` sobre la imagen activa y bloqueo de botones durante carga.
+- [x] Optimización de rendimiento: pool de conexiones `httpx.AsyncClient` en `lifespan` de FastAPI, `GZipMiddleware`, headers `Cache-Control` en catálogos estáticos, `keep_alive: "15m"` en Ollama, redimensionado visual a `512px` y cancelación de peticiones `/api/radar` obsoletas con `AbortController`.

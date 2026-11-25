@@ -9,7 +9,7 @@ def test_knowledge_base_has_required_content() -> None:
     kb = load_knowledge()
     assert len(kb.rutas) == 3
     assert len(kb.pisos_termicos) == 4
-    assert len(kb.especies) == 4
+    assert len(kb.especies) == 12
     assert "soroche" in kb.protocolos_vida
     assert "hipotermia" in kb.protocolos_vida
     assert "volcanico" in kb.protocolos_vida

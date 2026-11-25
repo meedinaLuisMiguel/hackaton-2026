@@ -37,17 +37,31 @@ export function SafetyModal({
   onClose,
 }: SafetyModalProps) {
   const [activeProtocol, setActiveProtocol] = useState<ProtocolKey>('soroche')
-  const [checkedSymptoms, setCheckedSymptoms] = useState<string[]>([])
+  const [checkedByProtocol, setCheckedByProtocol] = useState<Record<ProtocolKey, string[]>>({
+    soroche: [],
+    hipotermia: [],
+    volcanico: [],
+  })
   const [sosStep, setSosStep] = useState<'idle' | 'confirm' | 'sent'>('idle')
 
   if (!isOpen) return null
 
   const currentProto = protocolos[activeProtocol] ?? protocolos.soroche
+  const checkedSymptoms = checkedByProtocol[activeProtocol] ?? []
 
   function toggleSymptom(symptom: string) {
-    setCheckedSymptoms((prev) =>
-      prev.includes(symptom) ? prev.filter((item) => item !== symptom) : [...prev, symptom],
-    )
+    setCheckedByProtocol((prev) => {
+      const current = prev[activeProtocol] ?? []
+      const next = current.includes(symptom)
+        ? current.filter((item) => item !== symptom)
+        : [...current, symptom]
+      return { ...prev, [activeProtocol]: next }
+    })
+  }
+
+  function handleClose() {
+    setSosStep('idle')
+    onClose()
   }
 
   const latLabel = coords ? `${coords.lat}° N` : '4.8950° N'
@@ -78,7 +92,7 @@ export function SafetyModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Cerrar módulo de emergencia"
             className="min-h-[44px] min-w-[44px] rounded-full border border-mountain-border bg-mist text-mountain-ink inline-flex items-center justify-center cursor-pointer"
           >

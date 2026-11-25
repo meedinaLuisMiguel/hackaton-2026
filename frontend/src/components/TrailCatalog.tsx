@@ -10,7 +10,7 @@ import {
   Search,
   ShieldCheck,
 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { BitacoraCategoria, BitacoraEntry, Ruta } from '../types/paramo'
 
 interface TrailCatalogProps {
@@ -34,13 +34,24 @@ export function TrailCatalog({
   bitacora,
   onAddBitacora,
 }: TrailCatalogProps) {
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(() => {
+    try { return window.localStorage.getItem('kumanday_trail_search_open_v1') === 'true' } catch { return false }
+  })
+  const [query, setQuery] = useState(() => {
+    try { return window.localStorage.getItem('kumanday_trail_query_v1') ?? '' } catch { return '' }
+  })
   const [expandedId, setExpandedId] = useState<string | null>(rutas[0]?.id ?? null)
 
   const [logFormOpen, setLogFormOpen] = useState(false)
   const [categoria, setCategoria] = useState<BitacoraCategoria>('Fauna')
   const [nota, setNota] = useState('')
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('kumanday_trail_search_open_v1', String(searchOpen))
+      window.localStorage.setItem('kumanday_trail_query_v1', query)
+    } catch { /* optional cache */ }
+  }, [query, searchOpen])
 
   const filteredRutas = rutas.filter((r) => {
     if (!query.trim()) return true
@@ -303,7 +314,8 @@ export function TrailCatalog({
 
             <button
               type="submit"
-              className="min-h-[48px] w-full rounded-full bg-frailejon px-4 text-sm font-semibold text-white hover:bg-frailejon-deep cursor-pointer"
+              disabled={!nota.trim()}
+              className="min-h-[48px] w-full rounded-full bg-frailejon px-4 text-sm font-semibold text-white hover:bg-frailejon-deep disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               Guardar en Bitácora Offline
             </button>

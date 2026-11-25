@@ -59,7 +59,7 @@
       "max_m": 3200,
       "temp": "10°C - 14°C",
       "descripcion": "Selva de niebla con árboles retorcidos, musgos y transición hacia la palma de cera.",
-      "especies_clave": ["Oso de anteojos", "Loro orejiamarillo", "Palma de cera"]
+      "especies_clave": ["Oso de Anteojos", "Loro Orejiamarillo", "Palma de Cera del Quindío", "Danta de Montaña"]
     },
     {
       "piso": "Subpáramo",
@@ -67,7 +67,7 @@
       "max_m": 3500,
       "temp": "7°C - 10°C",
       "descripcion": "Arbustos bajos, romeros de páramo y mortiños; zona de alta actividad de polinizadores.",
-      "especies_clave": ["Romero de páramo", "Chivito de páramo", "Danta de montaña"]
+      "especies_clave": ["Romero de Páramo", "Chivito de Páramo", "Danta de Montaña", "Colibrí Picoespina"]
     },
     {
       "piso": "Páramo Propiamente Dicho",
@@ -75,7 +75,7 @@
       "max_m": 4100,
       "temp": "4°C - 7°C",
       "descripcion": "Fábrica de agua dominada por frailejonales, pajonales y turberas esponjosas.",
-      "especies_clave": ["Frailejón del Ruiz", "Chivito de páramo", "Pato andino"]
+      "especies_clave": ["Frailejón del Ruiz", "Chivito de Páramo", "Pato Andino", "Zorro de Páramo", "Musgo Turbero"]
     },
     {
       "piso": "Superpáramo",
@@ -83,7 +83,7 @@
       "max_m": 4800,
       "temp": "0°C - 3°C",
       "descripcion": "Tundra alpina de arenas volcánicas, líquenes y plantas almohadilla antes del glaciar.",
-      "especies_clave": ["Cacho de venado", "Cóndor de los Andes", "Líquenes crustáceos"]
+      "especies_clave": ["Cacho de Venado", "Cóndor de los Andes", "Zorro de Páramo", "Frailejón del Ruiz"]
     }
   ],
   "especies": [
@@ -93,6 +93,7 @@
       "nombre_cientifico": "Espeletia hartwegiana",
       "tipo": "Flora",
       "estado": "Especie Clave • Protegida",
+      "pisos": ["Páramo Propiamente Dicho", "Superpáramo"],
       "rol_ecologico": "Sus hojas vellosas atrapan gotas de la neblina y regulan el agua que abastece a Caldas y el Eje Cafetero. Refugia hasta 150 especies.",
       "alerta_conservacion": "No tocar ni arrancar sus hojas secas; son su abrigo térmico contra el congelamiento nocturno."
     },
@@ -102,6 +103,7 @@
       "nombre_cientifico": "Oxypogon stubelii",
       "tipo": "Fauna",
       "estado": "Endémico PNN Los Nevados • Vulnerable",
+      "pisos": ["Subpáramo", "Páramo Propiamente Dicho", "Superpáramo"],
       "rol_ecologico": "Colibrí exclusivo de los páramos del Nevado del Ruiz. Se posa en las flores de frailejón para ahorrar energía y usa su lana para hacer nidos.",
       "alerta_conservacion": "Observar en silencio a distancia. Prohibido el uso de flash."
     },
@@ -111,7 +113,8 @@
       "nombre_cientifico": "Vultur gryphus",
       "tipo": "Fauna",
       "estado": "En Peligro",
-      "rol_ecologico": "Carroñero supremo que mantiene limpio el ecosistema de alta montaña.",
+      "pisos": ["Páramo Propiamente Dicho", "Superpáramo"],
+      "rol_ecologico": "Carroñero supremo que mantiene limpio el ecosistema de alta montaña y planea sobre corrientes térmicas volcánicas.",
       "alerta_conservacion": "No dejar ningún residuo orgánico ni basura en la montaña."
     },
     {
@@ -120,8 +123,89 @@
       "nombre_cientifico": "Tremarctos ornatus",
       "tipo": "Fauna",
       "estado": "Vulnerable",
-      "rol_ecologico": "Jardinero del bosque altoandino y páramo; dispersa semillas y abre claros en la vegetación.",
-      "alerta_conservacion": "Mantener distancia segura y reportar avistamientos a guardaparques al descender."
+      "pisos": ["Bosque Altoandino", "Subpáramo"],
+      "rol_ecologico": "Único úrsido de Sudamérica; jardinero del bosque altoandino y páramo que dispersa semillas y abre claros en la vegetación.",
+      "alerta_conservacion": "Mantener distancia segura (mínimo 50 m), no alimentar y reportar avistamientos a guardaparques al descender."
+    },
+    {
+      "id": "danta",
+      "nombre_comun": "Danta de Montaña (Tapir Andino)",
+      "nombre_cientifico": "Tapirus pinchaque",
+      "tipo": "Fauna",
+      "estado": "En Peligro • Especie Paraguas",
+      "pisos": ["Bosque Altoandino", "Subpáramo"],
+      "rol_ecologico": "Mamífero herbívoro más grande del páramo; abre trochas naturales y dispersa semillas de palma y arbustos andinos.",
+      "alerta_conservacion": "No bloquear sus senderos cercanos a quebradas ni hacer ruido excesivo en zonas de niebla."
+    },
+    {
+      "id": "loro",
+      "nombre_comun": "Loro Orejiamarillo",
+      "nombre_cientifico": "Ognorhynchus icterotis",
+      "tipo": "Fauna",
+      "estado": "Vulnerable • Dependiente de Palma de Cera",
+      "pisos": ["Bosque Altoandino"],
+      "rol_ecologico": "Habita bandadas en bosques de niebla y anida exclusivamente en troncos huecos de palma de cera.",
+      "alerta_conservacion": "Proteger los bosques de palma de cera y evitar drones o ruido cerca de zonas de anidación."
+    },
+    {
+      "id": "palma",
+      "nombre_comun": "Palma de Cera del Quindío",
+      "nombre_cientifico": "Ceroxylon quindiuense",
+      "tipo": "Flora",
+      "estado": "Árbol Nacional • En Peligro",
+      "pisos": ["Bosque Altoandino"],
+      "rol_ecologico": "Palma más alta del mundo (hasta 60 m); sostiene cadenas tróficas de aves como el loro orejiamarillo en el bosque altoandino.",
+      "alerta_conservacion": "Prohibido cortar sus cogollos o dañar su corteza cerosa."
+    },
+    {
+      "id": "pato",
+      "nombre_comun": "Pato Andino (Pato Paramuno)",
+      "nombre_cientifico": "Anas andium",
+      "tipo": "Fauna",
+      "estado": "Residente Altoandino • Indicador de Humedales",
+      "pisos": ["Páramo Propiamente Dicho"],
+      "rol_ecologico": "Habita lagunas glaciares como Otún y Laguna Verde; regula insectos acuáticos y macrófitas de turberas.",
+      "alerta_conservacion": "No acercarse a las orillas de lagunas Ramsar ni contaminar el agua con bloqueadores o residuos."
+    },
+    {
+      "id": "romero",
+      "nombre_comun": "Romero de Páramo",
+      "nombre_cientifico": "Diplostephium rosmarinifolium",
+      "tipo": "Flora",
+      "estado": "Nativa de Subpáramo",
+      "pisos": ["Subpáramo", "Páramo Propiamente Dicho"],
+      "rol_ecologico": "Arbusto aromático de hojas coriáceas que estabiliza suelos volcánicos y ofrece néctar a abejorros y colibríes.",
+      "alerta_conservacion": "No arrancar ramas para fogatas ni infusiones dentro del parque."
+    },
+    {
+      "id": "cacho",
+      "nombre_comun": "Cacho de Venado",
+      "nombre_cientifico": "Loricaria complanata",
+      "tipo": "Flora",
+      "estado": "Especialista de Superpáramo",
+      "pisos": ["Superpáramo"],
+      "rol_ecologico": "Arbusto rastrero de tallos planos que resiste heladas nocturnas y fija arenales volcánicos expuestos al viento.",
+      "alerta_conservacion": "Caminar exclusivamente sobre el sendero marcado; su crecimiento es extremadamente lento."
+    },
+    {
+      "id": "zorro",
+      "nombre_comun": "Zorro de Páramo (Lobo Colorado)",
+      "nombre_cientifico": "Lycalopex culpaeus",
+      "tipo": "Fauna",
+      "estado": "Cánido Nativo Altoandino",
+      "pisos": ["Páramo Propiamente Dicho", "Superpáramo"],
+      "rol_ecologico": "Depredador mediano que controla poblaciones de roedores y conejos de páramo, manteniendo el equilibrio del pajonal.",
+      "alerta_conservacion": "Nunca ofrecerle comida ni acercarse para fotografiarlo; evita habituarlo a humanos."
+    },
+    {
+      "id": "musgo",
+      "nombre_comun": "Musgo Turbero (Colchón de Agua)",
+      "nombre_cientifico": "Sphagnum magellanicum",
+      "tipo": "Flora",
+      "estado": "Especie Clave Hídrica",
+      "pisos": ["Subpáramo", "Páramo Propiamente Dicho"],
+      "rol_ecologico": "Absorbe hasta 20 veces su peso en agua de lluvia y neblina, formando las turberas que alimentan los ríos del Eje Cafetero.",
+      "alerta_conservacion": "Prohibido pisar turberas y humedales; una pisada compacta el suelo durante décadas."
     }
   ],
   "protocolos_vida": {

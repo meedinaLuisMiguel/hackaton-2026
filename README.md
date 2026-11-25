@@ -1,13 +1,13 @@
-# 🏔️ Guía de Páramo Sin Señal — PNN Los Nevados
+# 🏔️ Kumanday — Guía de Páramo Sin Señal (PNN Los Nevados)
 
-MVP desarrollado para la hackatón **INNOVA GENERACIONES** (Universidad de Caldas & ACOPI Caldas). Es una aplicación web *mobile-first* y **100% offline-first** diseñada para la interpretación ambiental y la seguridad en alta montaña en el **Parque Nacional Natural Los Nevados (Colombia)** sin depender de internet ni APIs de pago.
+MVP desarrollado para la hackatón **INNOVA GENERACIONES** (Universidad de Caldas & ACOPI Caldas). **Kumanday** es una aplicación web *mobile-first* y **100 % offline-first** con un agente de IA local para interpretación ambiental y seguridad en alta montaña en el **Parque Nacional Natural Los Nevados (Colombia)** sin depender de internet ni APIs de pago.
 
 ## ✨ Funcionalidades principales
 
 - **Radar GPS por Altitud y Pisos Térmicos:** Lectura GNSS del dispositivo + simulador de altitud (`2.300 m` a `4.800 m`) con cálculo automático de piso térmico, especies probables y riesgo de soroche.
 - **Catálogo Oficial PNNN y Bitácora Offline:** 3 corredores verificados (*Brisas – Valle de las Tumbas*, *Cisne – Laguna Verde* y *Potosí – Laguna del Otún*) con estaciones, reglas obligatorias, descarga offline y bitácora de campo persistida en el dispositivo.
-- **Lente de Páramo (Visión IA Local):** Identificación de especies mediante cámara, carga de foto o muestras rápidas locales conectadas a Ollama multimodal (`gemma3:4b`) con respaldo offline verificado.
-- **Guía Científico (Chat RAG Offline):** Asistente contextualizado en `pnnn_knowledge.json` con detección prioritaria de alertas médicas/volcánicas y respuestas concisas.
+- **Lente de Páramo (Visión IA Estricta):** Validación estricta de imágenes (`JPG`, `PNG`, `WebP`), identificación multimodal con Ollama (`gemma3:4b`) que descarta especies fuera del ecosistema PNNN, 4 muestras rápidas locales y explorador offline de **12 especies verificadas**.
+- **Agente Kumanday (IA Local con Herramientas):** Orquestador contextualizado en `pnnn_knowledge.json` que ejecuta herramientas locales (`consultar_radar_altitud`, `consultar_especie`, `consultar_ruta`, `activar_protocolo_vida`), bloquea temas fuera de dominio y entrega respuestas concisas sin divagar.
 - **Protegiendo la Vida (Triaje y SOS):** Triaje interactivo de *Soroche*, *Hipotermia* y *Seguridad Volcánica*, baliza SOS satelital simulada y directorio de emergencias de Caldas offline.
 
 ## 🚀 Cómo ejecutar
