@@ -130,6 +130,44 @@ async def test_chat_uses_ollama_response_when_available() -> None:
     assert "frailejón" in body["reply"].lower()
 
 
+async def test_general_chat_is_answered_by_local_model_with_scope_reminder() -> None:
+    mock = {"message": {"content": "Una silla es un mueble para sentarse. Mi especialidad es Los Nevados."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)) as ollama:
+        async with _asgi_client() as client:
+            resp = await client.post("/api/chat", json={"message": "¿Qué es una silla?"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["out_of_domain"] is True
+    assert "especialidad" in body["reply"].lower()
+    assert body["model"] == "gemma3:4b"
+    ollama.assert_awaited_once()
+
+
+async def test_species_question_does_not_suggest_opening_routes() -> None:
+    mock = {"message": {"content": "El frailejón es una planta nativa del páramo."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)):
+        async with _asgi_client() as client:
+            resp = await client.post("/api/chat", json={"message": "¿Qué hace el frailejón?"})
+    assert resp.status_code == 200
+    assert resp.json()["suggested_action"] == "none"
+
+
+async def test_vision_recognizes_everyday_object_with_park_focus_note() -> None:
+    mock = {"message": {"content": (
+        '{"objeto_detectado":"Silla","es_especie_pnnn":false,'
+        '"especie_id":"ninguna","categoria":"No pertenece al PNNN",'
+        '"confianza":"Alta","observacion":"Es una silla de madera."}'
+    )}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)):
+        async with _asgi_client() as client:
+            resp = await client.post("/api/vision", json={"image_base64": _make_sample_png_base64()})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tipo"] == "Objeto"
+    assert body["nombre_comun"] == "Silla"
+    assert "especialidad" in body["enfoque_notice"]
+
+
 async def test_vision_strict_format_validation_and_frailejon_match() -> None:
     async with _asgi_client() as client:
         bad_b64 = await client.post("/api/vision", json={"image_base64": "not-valid-base64!!!"})

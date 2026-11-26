@@ -72,6 +72,7 @@ export async function getHealth(): Promise<HealthResponse> {
       ollama_url: 'http://localhost:11434',
       configured_model: 'gemma3:4b',
       configured_vision_model: 'gemma3:4b',
+      model_available: false,
       active_models: [],
       species_count: OFFLINE_ESPECIES.length,
       offline_ready: true,
@@ -142,7 +143,8 @@ export async function postChat(payload: {
       },
       45000,
     )
-  } catch {
+  } catch (err) {
+    if (err instanceof ApiError) throw err
     return buildOfflineChatReply(payload.message, payload.altitud_m)
   }
 }
@@ -163,10 +165,7 @@ export async function postVision(payload: {
       45000,
     )
   } catch (err) {
-    // Propagate client validation errors (HTTP 422) so user sees exact format error
-    if (err instanceof ApiError && err.status === 422) {
-      throw err
-    }
+    if (err instanceof ApiError) throw err
     return buildOfflineVisionFallback(payload.hint)
   }
 }

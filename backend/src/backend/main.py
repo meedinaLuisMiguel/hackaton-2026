@@ -1,6 +1,6 @@
 """FastAPI entry point for Kumanday — Agente IA del PNN Los Nevados."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import httpx
@@ -33,7 +33,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     """Maintain a pooled async HTTP client across requests for low-latency Ollama calls."""
     limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
     async with httpx.AsyncClient(limits=limits) as client:
@@ -90,6 +90,10 @@ async def health(request: Request) -> HealthResponse:
         ollama_url=runtime_settings.ollama_base_url,
         configured_model=runtime_settings.ollama_model,
         configured_vision_model=runtime_settings.ollama_vision_model,
+        model_available=(runtime_settings.ollama_model in models or any(
+            model.split(":")[0] == runtime_settings.ollama_model.split(":")[0]
+            for model in models
+        )),
         active_models=models,
         species_count=len(kb.especies),
         offline_ready=True,

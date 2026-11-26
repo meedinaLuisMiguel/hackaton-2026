@@ -1,9 +1,7 @@
 import {
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   CloudOff,
-  Download,
   Edit3,
   MapPin,
   MessageSquare,
@@ -16,8 +14,6 @@ import type { BitacoraCategoria, BitacoraEntry, Ruta } from '../types/paramo'
 interface TrailCatalogProps {
   rutas: Ruta[]
   altitude: number
-  downloadedIds: string[]
-  onToggleDownload: (id: string) => void
   onAskAboutRuta: (ruta: Ruta) => void
   bitacora: BitacoraEntry[]
   onAddBitacora: (entry: BitacoraEntry) => void
@@ -28,8 +24,6 @@ const CATEGORIES: BitacoraCategoria[] = ['Fauna', 'Flora', 'Clima']
 export function TrailCatalog({
   rutas,
   altitude,
-  downloadedIds,
-  onToggleDownload,
   onAskAboutRuta,
   bitacora,
   onAddBitacora,
@@ -40,7 +34,7 @@ export function TrailCatalog({
   const [query, setQuery] = useState(() => {
     try { return window.localStorage.getItem('kumanday_trail_query_v1') ?? '' } catch { return '' }
   })
-  const [expandedId, setExpandedId] = useState<string | null>(rutas[0]?.id ?? null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const [logFormOpen, setLogFormOpen] = useState(false)
   const [categoria, setCategoria] = useState<BitacoraCategoria>('Fauna')
@@ -92,7 +86,7 @@ export function TrailCatalog({
               Corredores Oficiales PNNN
             </h2>
             <p className="font-mono text-xs text-mountain-muted">
-              {rutas.length} rutas verificadas • Paquete offline
+              {rutas.length} rutas • Guía local
             </p>
           </div>
           <button
@@ -124,7 +118,6 @@ export function TrailCatalog({
 
         <div className="flex flex-col gap-3">
           {filteredRutas.map((ruta) => {
-            const isDownloaded = downloadedIds.includes(ruta.id)
             const isExpanded = expandedId === ruta.id
             const isHighDifficulty = ruta.dificultad.toLowerCase().includes('alta')
 
@@ -166,7 +159,17 @@ export function TrailCatalog({
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-mountain-border/50 pt-2.5">
                   <button
                     type="button"
-                    onClick={() => setExpandedId(isExpanded ? null : ruta.id)}
+                    aria-expanded={isExpanded}
+                    onClick={(event) => {
+                      const card = event.currentTarget.closest('article')
+                      setExpandedId(isExpanded ? null : ruta.id)
+                      if (!isExpanded && card) {
+                        window.requestAnimationFrame(() => {
+                          const top = card.getBoundingClientRect().top + window.scrollY - 104
+                          window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+                        })
+                      }
+                    }}
                     className="min-h-[44px] rounded-full px-3 text-xs font-semibold text-frailejon inline-flex items-center gap-1 hover:bg-moss-surface/60 cursor-pointer"
                   >
                     <span>{isExpanded ? 'Ocultar estaciones' : 'Ver estaciones y reglas'}</span>
@@ -177,27 +180,6 @@ export function TrailCatalog({
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => onToggleDownload(ruta.id)}
-                    className={`min-h-[44px] rounded-full px-3.5 py-2 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      isDownloaded
-                        ? 'bg-moss-surface text-frailejon-deep border border-frailejon/20'
-                        : 'bg-white text-mountain-ink border border-mountain-border hover:bg-mist'
-                    }`}
-                  >
-                    {isDownloaded ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                        <span>Descargado ✓</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4" aria-hidden="true" />
-                        <span>Descargar Pack</span>
-                      </>
-                    )}
-                  </button>
                 </div>
 
                 {/* Expanded Stations & Mandatory Rules */}

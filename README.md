@@ -1,60 +1,80 @@
-# 🏔️ Kumanday — Guía de Páramo Sin Señal (PNN Los Nevados)
+# Kumanday — Guía local del PNN Los Nevados
 
-MVP desarrollado para la hackatón **INNOVA GENERACIONES** (Universidad de Caldas & ACOPI Caldas). **Kumanday** es una aplicación web *mobile-first* y **100 % offline-first** con un agente de IA local para interpretación ambiental y seguridad en alta montaña en el **Parque Nacional Natural Los Nevados (Colombia)** sin depender de internet ni APIs de pago.
+MVP mobile-first para explorar rutas, especies y orientación de seguridad de alta montaña. El catálogo y los respaldos deterministas están incluidos localmente. Las funciones de chat y visión usan Ollama cuando el backend puede alcanzar el modelo configurado.
 
-## ✨ Funcionalidades principales
+## Funciones
 
-- **Radar GPS por Altitud y Pisos Térmicos:** Lectura GNSS del dispositivo + simulador de altitud (`2.300 m` a `4.800 m`) con cálculo automático de piso térmico, especies probables y riesgo de soroche.
-- **Catálogo Oficial PNNN y Bitácora Offline:** 3 corredores verificados (*Brisas – Valle de las Tumbas*, *Cisne – Laguna Verde* y *Potosí – Laguna del Otún*) con estaciones, reglas obligatorias, descarga offline y bitácora de campo persistida en el dispositivo.
-- **Lente de Páramo (Visión IA Estricta):** Validación estricta de imágenes (`JPG`, `PNG`, `WebP`), identificación multimodal con Ollama (`gemma3:4b`) que descarta especies fuera del ecosistema PNNN, 4 muestras rápidas locales y explorador offline de **12 especies verificadas**.
-- **Agente Kumanday (IA Local con Herramientas):** Orquestador contextualizado en `pnnn_knowledge.json` que ejecuta herramientas locales (`consultar_radar_altitud`, `consultar_especie`, `consultar_ruta`, `activar_protocolo_vida`), bloquea temas fuera de dominio y entrega respuestas concisas sin divagar.
-- **Protegiendo la Vida (Triaje y SOS):** Triaje interactivo de *Soroche*, *Hipotermia* y *Seguridad Volcánica*, baliza SOS satelital simulada y directorio de emergencias de Caldas offline.
+- Radar de altitud con lectura de geolocalización del dispositivo y ajuste simulado.
+- Tres rutas y catálogo de especies incluidos en la app; estaciones y reglas se consultan al expandir cada ruta. La bitácora se guarda localmente.
+- Identificación visual con Ollama y fichas locales para muestras de demostración.
+- Chat Kumanday con contexto de altitud, especies y rutas, más respuestas deterministas si Ollama no está disponible.
+- Triaje informativo y directorio de emergencias.
 
-## 🚀 Cómo ejecutar
+Las rutas muestran estaciones y reglas obligatorias; no hay descarga de mapas. La bitácora se guarda localmente en este navegador. El acceso offline requiere haber cargado la aplicación. El contenido de seguridad es informativo y no sustituye protocolos oficiales ni instrucciones del personal del parque.
 
-### Opción A: Docker Compose (Recomendado)
+## Interfaz y navegación móvil
 
-```bash
-docker compose up --build
-```
+- El tema claro/oscuro ajusta las superficies, el texto y los avisos de seguridad para mantener contraste legible.
+- El compositor del chat permanece fijo sobre la navegación inferior en pantallas pequeñas y se desplaza cuando aparece el teclado.
+- El pie de créditos se mantiene al borde inferior en pestañas con poco contenido, justo encima de la navegación; acompaña al contenido si la pestaña es larga. El chat reserva espacio adicional para su compositor fijo.
+- En **Rutas & GPS**, abre **Ver estaciones y reglas** para consultar los detalles del recorrido; la tarjeta queda visible al expandirla.
+- El botón flotante de flecha sube al inicio cuando la página ya se desplazó. En móvil también se puede deslizar hacia arriba sobre el contenido para volver arriba. Los gestos en controles, botones y campos de entrada se reservan para esos controles.
+- El deslizador de altitud modifica una referencia simulada. No representa una lectura GPS real; la ubicación real se solicita con **Sincronizar GPS del dispositivo**.
+- La bienvenida inmersiva dura 7,2 segundos: revela el amanecer, las capas del páramo, curvas topográficas y un frailejón. El botón **Saltar animación** permite entrar de inmediato; con movimiento reducido, la portada aparece directamente en su estado final.
 
-- Frontend: `http://localhost:5173` (Nginx con proxy `/api/` hacia el backend)
-- Backend API: `http://localhost:8000` (Swagger en `/docs`)
-- Modelo Ollama preconfigurado: `gemma3:4b`
+## Demo nativa en Windows con Ollama en este PC
 
-### Opción B: Desarrollo nativo en Windows (`uv` + `pnpm` + Ollama local)
+Requisitos: Ollama, `gemma3:4b`, `uv` y `pnpm` instalados.
 
-1. **Ollama local (opcional, tiene fallback offline si no está encendido):**
+1. Terminal de Ollama:
+
    ```powershell
    ollama pull gemma3:4b
    ollama serve
    ```
-2. **Backend (puerto 8000):**
+
+2. En otra terminal, iniciar backend:
+
    ```powershell
    cd backend
    uv sync
    uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
    ```
-3. **Frontend (puerto 5173):**
+
+   El backend nativo apunta por defecto a `http://localhost:11434`.
+
+3. En otra terminal, iniciar frontend:
+
    ```powershell
    cd frontend
    pnpm install
    pnpm dev
    ```
 
-## ✅ Verificación y Calidad
+4. Abrir `http://localhost:5173`. En el encabezado y en **Kumanday IA**, confirma que aparece “IA local lista” y que se muestra el modelo configurado. Si indica que el modelo falta o no está disponible, chat/visión usan el respaldo cuando esté habilitado.
 
-### Backend (`ruff`, `ty`, `pytest`)
+## Docker Compose
+
+```powershell
+docker compose up --build
+```
+
+Este modo ejecuta Ollama dentro de Docker y guarda el modelo en un volumen. Para usar Ollama instalado en el host, configura `OLLAMA_BASE_URL=http://host.docker.internal:11434` en el servicio backend y asegúrate de que el host permite conexiones desde Docker.
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000` (documentación en `/docs`)
+
+## Verificación
+
+```powershell
+cd frontend
+pnpm lint
+pnpm build
+```
+
 ```powershell
 cd backend
 uv run ruff check src tests
 uv run ty check
 uv run pytest -v
-```
-
-### Frontend (`oxlint`, `tsc`, `vite build`)
-```powershell
-cd frontend
-pnpm lint
-pnpm build
 ```

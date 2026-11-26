@@ -90,6 +90,7 @@ class HealthResponse(BaseModel):
     ollama_url: str
     configured_model: str
     configured_vision_model: str
+    model_available: bool = False
     active_models: list[str]
     species_count: int = 12
     offline_ready: bool = True
@@ -151,11 +152,12 @@ class VisionResponse(BaseModel):
     en_pnnn: bool = True
     nombre_comun: str
     nombre_cientifico: str
-    tipo: Literal["Flora", "Fauna", "Entorno", "Fuera de Ecosistema", "Sin Confirmación"]
+    tipo: Literal["Flora", "Fauna", "Entorno", "Objeto", "Fuera de Ecosistema", "Sin Confirmación"]
     estado: str
     rol_ecologico: str
     alerta_conservacion: str
     confianza: str
     descripcion_ia: str
+    enfoque_notice: str | None = None
     model: str
     fallback_used: bool = False

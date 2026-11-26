@@ -16,6 +16,9 @@ interface RagChatProps {
   messages: UiChatMessage[]
   loading: boolean
   lastSpecies: string | null
+  ollamaConnected: boolean
+  modelAvailable: boolean
+  configuredModel: string
   onSendMessage: (text: string) => void
   onStartNewChat: () => void
   onClearCache: () => boolean
@@ -26,8 +29,6 @@ interface RagChatProps {
 const QUICK_CHIPS = [
   '¿Cómo produce agua el frailejón?',
   'Tengo dolor de cabeza a 4.200 m',
-  '¿Qué aves viven aquí?',
-  'Reglas Valle de las Tumbas',
 ]
 
 export function RagChat({
@@ -35,6 +36,9 @@ export function RagChat({
   messages,
   loading,
   lastSpecies,
+  ollamaConnected,
+  modelAvailable,
+  configuredModel,
   onSendMessage,
   onStartNewChat,
   onClearCache,
@@ -45,14 +49,57 @@ export function RagChat({
     try { return window.localStorage.getItem('kumanday_chat_draft_v1') ?? '' } catch { return '' }
   })
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  const sendingRef = useRef(false)
+  const sectionRef = useRef<HTMLElement | null>(null)
+
+  function sendPrompt(prompt: string) {
+    if (!prompt.trim() || loading || sendingRef.current) return
+    sendingRef.current = true
+    onSendMessage(prompt)
+    window.setTimeout(() => { sendingRef.current = false }, 500)
+  }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const chatSection = sectionRef.current
+    if (!chatSection || chatSection.closest('.view-inactive')) return
+    const chatTop = chatSection.getBoundingClientRect().top
+    const chatBottom = chatSection.getBoundingClientRect().bottom
+    const viewportBottom = window.visualViewport?.height ?? window.innerHeight
+    // Keep the latest conversation in view only when it was already in the user's reading area.
+    // This avoids switching tabs or starting a chat from yanking the whole page to the bottom.
+    if (chatBottom > 0 && chatTop < viewportBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }, [messages.length, loading])
 
   useEffect(() => {
     try { window.localStorage.setItem('kumanday_chat_draft_v1', input) } catch { /* optional cache */ }
   }, [input])
+
+  useEffect(() => {
+    const visualViewport = window.visualViewport
+    if (!visualViewport) return
+    const appShell = sectionRef.current?.closest<HTMLElement>('.app-shell')
+    const experienceContent = appShell?.querySelector<HTMLElement>('.experience-content')
+    if (!appShell || !experienceContent) return
+    const updateViewport = () => {
+      const keyboardInset = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+      const keyboardOpen = keyboardInset > 120
+      appShell.classList.toggle('keyboard-open', keyboardOpen)
+      appShell.style.setProperty('--keyboard-inset', `${keyboardInset}px`)
+      experienceContent.style.setProperty('--chat-viewport-height', `${visualViewport.height}px`)
+    }
+    visualViewport.addEventListener('resize', updateViewport)
+    visualViewport.addEventListener('scroll', updateViewport)
+    updateViewport()
+    return () => {
+      visualViewport.removeEventListener('resize', updateViewport)
+      visualViewport.removeEventListener('scroll', updateViewport)
+      appShell.classList.remove('keyboard-open')
+      appShell.style.removeProperty('--keyboard-inset')
+      experienceContent.style.removeProperty('--chat-viewport-height')
+    }
+  }, [])
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -60,11 +107,11 @@ export function RagChat({
     if (!clean || loading) return
     setInput('')
     try { window.localStorage.removeItem('kumanday_chat_draft_v1') } catch { /* optional cache */ }
-    onSendMessage(clean)
+    sendPrompt(clean)
   }
 
   return (
-    <section className="flex flex-col gap-3" aria-label="Kumanday - Agente IA PNN Los Nevados">
+    <section ref={sectionRef} className="chat-panel flex flex-col gap-3" aria-label="Kumanday - Agente IA PNN Los Nevados">
       {/* Context Bar */}
       <div className="flex items-center justify-between gap-2 rounded-2xl border border-mountain-border bg-white px-3.5 py-2.5 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
@@ -75,9 +122,9 @@ export function RagChat({
             <h2 className="truncate text-sm font-bold text-mountain-ink">
               Kumanday • Agente PNNN
             </h2>
-            <p className="truncate font-mono text-[11px] text-mountain-muted tabular-nums">
-              {altitude.toLocaleString('es-CO')} m
-              {lastSpecies ? ` • En foco: ${lastSpecies}` : ' • Herramientas activas'}
+            <p className="truncate text-[11px] text-mountain-muted">
+              {ollamaConnected && modelAvailable ? `Modelo local listo · ${configuredModel}` : ollamaConnected ? `Falta modelo · ${configuredModel}` : 'Asistente local disponible'}
+              {lastSpecies ? ` · ${lastSpecies}` : ` · ${altitude.toLocaleString('es-CO')} m`}
             </p>
           </div>
         </div>
@@ -91,10 +138,6 @@ export function RagChat({
         </div>
       </div>
 
-      <aside className="rounded-2xl border border-frailejon/15 bg-moss-surface/70 px-4 py-3 text-xs leading-relaxed text-frailejon-deep">
-        <strong>Kumanday puede ayudarte con otras preguntas.</strong> Su especialidad es el PNN Los Nevados; cuando una consulta o imagen salga de ese enfoque, te lo indicará.
-      </aside>
-
       {/* Quick Prompt Chips */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" role="group">
         {QUICK_CHIPS.map((chip) => (
@@ -102,7 +145,7 @@ export function RagChat({
             key={chip}
             type="button"
             disabled={loading}
-            onClick={() => onSendMessage(chip)}
+            onClick={() => sendPrompt(chip)}
             className="min-h-[44px] shrink-0 whitespace-nowrap rounded-full border border-mountain-border bg-white px-3.5 py-2 text-xs font-semibold text-mountain-ink hover:bg-moss-surface hover:border-frailejon/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {chip}
@@ -111,7 +154,7 @@ export function RagChat({
       </div>
 
       {/* Chat Thread */}
-      <div className="flex flex-col gap-3">
+      <div className="chat-thread flex flex-col gap-3">
         {messages.map((msg) => {
           if (msg.role === 'user') {
             return (
@@ -175,28 +218,23 @@ export function RagChat({
                 )}
 
                 {(msg.toolsUsed?.length || msg.sources?.length) && (
-                  <div className="flex flex-wrap items-center gap-1.5 border-t border-mountain-border/40 pt-2">
-                    <span className="font-mono text-[10px] text-mountain-muted">
-                      {msg.fallbackUsed ? 'Offline verificado' : msg.model ?? 'Kumanday'}:
-                    </span>
-                    {msg.toolsUsed?.map((tool) => (
-                      <span
-                        key={tool}
-                        className="inline-flex items-center gap-1 rounded-full bg-moss-surface px-2 py-0.5 font-mono text-[10px] font-semibold text-frailejon-deep"
-                      >
-                        <Wrench className="h-2.5 w-2.5" aria-hidden="true" />
-                        <span>{tool}</span>
+                  <details className="border-t border-mountain-border/40 pt-2">
+                    <summary className="cursor-pointer text-[11px] font-medium text-mountain-muted">Ver fuente y modo de respuesta</summary>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-[10px] text-mountain-muted">
+                        {msg.model === 'error-local' ? 'Error del servicio' : msg.fallbackUsed ? 'Respaldo local' : msg.model ?? 'Kumanday'}
                       </span>
-                    ))}
-                    {msg.sources?.map((src) => (
-                      <span
-                        key={src}
-                        className="rounded-full bg-mist px-2 py-0.5 text-[10px] font-semibold text-mountain-muted"
-                      >
-                        {src}
-                      </span>
-                    ))}
-                  </div>
+                      {msg.toolsUsed?.map((tool) => (
+                        <span key={tool} className="inline-flex items-center gap-1 rounded-full bg-moss-surface px-2 py-0.5 font-mono text-[10px] font-semibold text-frailejon-deep">
+                          <Wrench className="h-2.5 w-2.5" aria-hidden="true" />
+                          <span>{tool}</span>
+                        </span>
+                      ))}
+                      {msg.sources?.map((src) => (
+                        <span key={src} className="rounded-full bg-mist px-2 py-0.5 text-[10px] font-semibold text-mountain-muted">{src}</span>
+                      ))}
+                    </div>
+                  </details>
                 )}
               </div>
             </div>
@@ -209,7 +247,7 @@ export function RagChat({
               <Sparkles className="h-4 w-4 animate-spin" aria-hidden="true" />
             </div>
             <div className="rounded-2xl rounded-tl-sm border border-mountain-border bg-white px-4 py-3 text-xs font-semibold text-mountain-muted">
-              Kumanday ejecutando herramientas locales...
+              Consultando a Kumanday…
             </div>
           </div>
         )}
@@ -219,7 +257,7 @@ export function RagChat({
       {/* Input Form */}
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-20 z-20 rounded-full border border-mountain-border bg-white/95 p-1.5 shadow-md backdrop-blur-md flex items-center gap-2"
+        className="chat-composer rounded-2xl border border-mountain-border bg-white/95 p-1.5 shadow-lg backdrop-blur-md flex items-center gap-2"
       >
         <label htmlFor="rag-chat-input" className="sr-only">
           Escribe tu pregunta para Kumanday
@@ -230,7 +268,7 @@ export function RagChat({
           value={input}
           disabled={loading}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pregunta a Kumanday sin señal..."
+          placeholder="Pregúntale algo a Kumanday…"
           className="min-h-[48px] flex-1 min-w-0 rounded-full bg-transparent px-4 text-sm text-mountain-ink placeholder:text-mountain-muted/70 focus:outline-none disabled:opacity-60"
         />
         <button

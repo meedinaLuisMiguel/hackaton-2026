@@ -5,8 +5,8 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Image as ImageIcon,
   MessageSquare,
-  RefreshCw,
   ScanLine,
   ShieldAlert,
   Sparkles,
@@ -105,6 +105,7 @@ export function VisionLens({
   onAskKumanday,
 }: VisionLensProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const inFlightRef = useRef(false)
   const objectUrlRef = useRef<string | null>(null)
 
@@ -218,6 +219,19 @@ export function VisionLens({
     await processIncomingFile(file)
   }
 
+  function openCamera() {
+    if (!window.isSecureContext) {
+      setErrorMsg('La cámara requiere una conexión segura (HTTPS) o abrir la app desde localhost. Prueba con “Elegir imagen” en este dispositivo.')
+      return
+    }
+    setErrorMsg(null)
+    if (!cameraInputRef.current) {
+      setErrorMsg('No se pudo abrir la cámara. Revisa los permisos del navegador o usa “Elegir imagen”.')
+      return
+    }
+    cameraInputRef.current?.click()
+  }
+
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
     setDragOver(false)
@@ -286,7 +300,7 @@ export function VisionLens({
             <div>
               <h2 className="text-base font-bold text-mountain-ink">Lente de Páramo (Visión IA)</h2>
               <p className="text-xs text-mountain-muted">
-                Solo imágenes JPG, PNG o WebP (máx. 8 MB) • Validación estricta PNNN
+                Reconoce objetos y especies • JPG, PNG o WebP
               </p>
             </div>
             <span className="font-mono text-xs font-semibold text-paramo-earth tabular-nums">
@@ -298,6 +312,13 @@ export function VisionLens({
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             onChange={handleFileChange}
             className="hidden"
@@ -306,41 +327,41 @@ export function VisionLens({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openCamera}
               disabled={loading}
               className="min-h-[48px] rounded-full bg-frailejon px-3.5 py-2 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 hover:bg-frailejon-deep disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Subir / Cámara</span>
+              <span>Tomar foto</span>
             </button>
 
             <button
               type="button"
-              onClick={handleReanalyzeCurrent}
+              onClick={() => fileInputRef.current?.click()}
               disabled={loading}
               className="min-h-[48px] rounded-full border border-mountain-border bg-mist px-3.5 py-2 text-xs font-semibold text-mountain-ink inline-flex items-center justify-center gap-1.5 hover:bg-moss-container/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <RefreshCw
-                className={`h-4 w-4 shrink-0 text-frailejon ${loading ? 'animate-spin' : ''}`}
-                aria-hidden="true"
-              />
-              <span>Re-analizar captura</span>
+              <ImageIcon className="h-4 w-4 shrink-0 text-frailejon" aria-hidden="true" />
+              <span>Elegir imagen</span>
             </button>
           </div>
+          {previewUrl.startsWith('blob:') && (
+            <button type="button" onClick={handleReanalyzeCurrent} disabled={loading} className="self-start text-xs font-semibold text-frailejon underline underline-offset-2 disabled:opacity-50">Volver a analizar esta foto</button>
+          )}
 
           {/* Quick Test Samples */}
           <div className="flex flex-col gap-2 pt-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-paramo-earth">
-              Muestras rápidas verificadas (100 % locales)
+              <span className="text-[11px] font-bold uppercase tracking-wider text-paramo-earth">
+              O explora una muestra
             </span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {SAMPLE_SPECIES_PHOTOS.map((sample) => (
                 <button
                   key={sample.id}
                   type="button"
                   onClick={() => handleSampleSelect(sample)}
                   disabled={loading}
-                  className={`min-h-[48px] rounded-xl border p-2 text-left flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                  className={`min-h-[48px] min-w-[155px] rounded-xl border p-2 text-left flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                     activeHint === sample.id && previewUrl === sample.src
                       ? 'border-frailejon bg-moss-surface/50'
                       : 'border-mountain-border bg-mist/60 hover:bg-moss-surface/40'
@@ -374,7 +395,7 @@ export function VisionLens({
         >
           <div className="flex items-center gap-2 text-xs font-semibold text-frailejon">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            <span>Kumanday está analizando la captura en Ollama local...</span>
+            <span>Kumanday está analizando la captura…</span>
           </div>
           <div className="h-4 w-2/3 rounded bg-mist" />
           <div className="h-3 w-full rounded bg-mist" />
@@ -396,7 +417,7 @@ export function VisionLens({
       {result && !loading && (
         <article
           className={`rounded-2xl border bg-white p-4 shadow-sm flex flex-col gap-3 ${
-            result.en_pnnn ? 'border-mountain-border' : 'border-life-alert/50'
+              result.en_pnnn || result.tipo === 'Objeto' ? 'border-mountain-border' : 'border-life-alert/50'
           }`}
         >
           <div className="flex items-start justify-between gap-2">
@@ -410,7 +431,7 @@ export function VisionLens({
             </div>
             <span
               className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                result.en_pnnn
+                result.en_pnnn || result.tipo === 'Objeto'
                   ? 'bg-moss-container text-frailejon-deep'
                   : 'bg-amber-surface text-on-amber-surface'
               }`}
@@ -421,12 +442,12 @@ export function VisionLens({
 
           <div
             className={`inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-xs font-semibold ${
-              result.en_pnnn
+              result.en_pnnn || result.tipo === 'Objeto'
                 ? 'bg-moss-surface text-frailejon-deep'
                 : 'bg-sos-surface text-on-sos-surface'
             }`}
           >
-            {result.en_pnnn ? (
+            {result.en_pnnn || result.tipo === 'Objeto' ? (
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             ) : (
               <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
@@ -437,11 +458,10 @@ export function VisionLens({
           <p className="text-sm leading-relaxed text-mountain-ink">{result.descripcion_ia}</p>
 
           <p className="text-xs leading-relaxed text-mountain-muted">
-            <strong className="font-semibold text-mountain-ink">Contexto ecológico:</strong>{' '}
-            {result.rol_ecologico}
+            {result.tipo === 'Objeto' ? result.rol_ecologico : <><strong className="font-semibold text-mountain-ink">Contexto ecológico:</strong>{' '}{result.rol_ecologico}</>}
           </p>
 
-          <div
+          {result.alerta_conservacion && <div
             role="status"
             className="rounded-xl border border-life-alert/30 bg-amber-surface p-3 flex items-start gap-2.5"
           >
@@ -449,11 +469,15 @@ export function VisionLens({
             <p className="text-xs font-semibold leading-snug text-on-amber-surface">
               {result.alerta_conservacion}
             </p>
-          </div>
+          </div>}
+
+          {result.enfoque_notice && (
+            <p className="rounded-xl border border-frailejon/20 bg-moss-surface/60 px-3 py-2 text-xs leading-relaxed text-frailejon-deep">{result.enfoque_notice}</p>
+          )}
 
           <div className="flex items-center justify-between gap-2 pt-1 border-t border-mountain-border/50">
             <span className="font-mono text-[11px] text-mountain-muted">
-              Motor: {result.fallback_used ? 'Catálogo Offline' : result.model}
+              {result.fallback_used ? 'Ficha local' : `IA local · ${result.model}`}
             </span>
             <button
               type="button"
@@ -493,7 +517,7 @@ export function VisionLens({
                 Catálogo Verificado ({especies.length} especies)
               </h3>
               <p className="text-[11px] text-mountain-muted">
-                Flora y fauna nativa disponible 100 % offline
+                Flora y fauna nativa incluida en el dispositivo
               </p>
             </div>
           </div>

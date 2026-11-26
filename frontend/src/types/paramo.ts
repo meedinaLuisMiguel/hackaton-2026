@@ -54,6 +54,7 @@ export interface HealthResponse {
   ollama_url: string
   configured_model: string
   configured_vision_model: string
+  model_available: boolean
   active_models: string[]
   species_count: number
   offline_ready: boolean
@@ -95,12 +96,13 @@ export interface VisionResponse {
   en_pnnn: boolean
   nombre_comun: string
   nombre_cientifico: string
-  tipo: 'Flora' | 'Fauna' | 'Entorno' | 'Fuera de Ecosistema' | 'Sin Confirmación'
+  tipo: 'Flora' | 'Fauna' | 'Entorno' | 'Objeto' | 'Fuera de Ecosistema' | 'Sin Confirmación'
   estado: string
   rol_ecologico: string
   alerta_conservacion: string
   confianza: string
   descripcion_ia: string
+  enfoque_notice?: string | null
   model: string
   fallback_used: boolean
 }

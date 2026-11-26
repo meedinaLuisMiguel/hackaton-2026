@@ -174,6 +174,16 @@ def _is_in_domain(request: ChatRequest, kb: KnowledgeBase) -> bool:
     norm = _normalize_text(request.message)
     if any(kw in norm for kw in SAFETY_KEYWORDS) or any(kw in norm for kw in DOMAIN_KEYWORDS):
         return True
+    # Explicit route context from UI actions is valid grounding for short/ambiguous prompts.
+    if request.ruta_id and any(route.id == request.ruta_id for route in kb.rutas):
+        return True
+    if request.last_species:
+        target = _normalize_text(request.last_species)
+        if any(
+            target in _normalize_text(f"{sp.nombre_comun} {sp.nombre_cientifico} {sp.id}")
+            for sp in kb.especies
+        ):
+            return True
     # History is context for grounded answers, never evidence that a new query belongs
     # to the park. Short unrelated messages must still hit the domain guardrail.
     q_tokens = _tokenize(request.message)
@@ -284,7 +294,8 @@ def _execute_agent_tools(
             scored_routes.append((score, ruta))
 
     scored_routes.sort(key=lambda item: item[0], reverse=True)
-    if scored_routes:
+    route_question = any(w in norm_query for w in ("ruta", "sendero", "estacion", "horario", "regla", "ingreso", "recorrido", "caminata", "brisas", "otun", "cisne", "tumbas"))
+    if scored_routes and route_question:
         tools_used.append("consultar_ruta")
         if suggested_action == "none":
             suggested_action = "open_rutas"
@@ -454,13 +465,12 @@ async def generate_chat_response(
     kb = load_knowledge()
 
     if not _is_in_domain(request, kb):
-        # Kumanday may answer general requests, while making its park mission clear.
-        # The model remains local; no external provider or data source is introduced.
         general_prompt = (
-            "Eres Kumanday, agente del Parque Nacional Natural Los Nevados. Responde a la pregunta del usuario "
-            "de forma directa, útil y breve en español (máximo 110 palabras). Como la consulta está fuera de tu "
-            "rol de guardaparques, añade al final una frase breve aclarando que tu especialidad es Los Nevados "
-            "y ofrece ayuda del parque. No inventes hechos; si no sabes algo, dilo."
+            "Eres Kumanday, guía inteligente del Parque Nacional Natural Los Nevados. Responde la pregunta "
+            "del usuario con autonomía, de forma directa, veraz y breve en español (máximo 90 palabras). "
+            "Si no sabes, dilo. Al final agrega una sola frase natural indicando que tu especialidad es "
+            "Los Nevados y ofrece ayuda relacionada con rutas, biodiversidad, altitud o seguridad. "
+            "No inventes datos ni fuerces la respuesta a hablar del parque."
         )
         try:
             data = await _post_to_ollama(
@@ -474,7 +484,7 @@ async def generate_chat_response(
                     ],
                     "stream": False,
                     "keep_alive": "15m",
-                    "options": {"temperature": 0.2, "num_ctx": 2048, "num_predict": 180},
+                    "options": {"temperature": 0.25, "num_ctx": 2048, "num_predict": 160},
                 },
                 settings.ollama_timeout_seconds,
                 http_client=http_client,
@@ -485,7 +495,7 @@ async def generate_chat_response(
                 return ChatResponse(
                     agent_name="Kumanday",
                     reply=_constrain_chat_reply(reply),
-                    sources=["Asistencia general local"],
+                    sources=["Respuesta general · IA local"],
                     tools_used=["consulta_general"],
                     suggested_action="none",
                     out_of_domain=True,
@@ -499,15 +509,14 @@ async def generate_chat_response(
         return ChatResponse(
             agent_name="Kumanday",
             reply=(
-                "No tengo el motor local disponible para resolver esa consulta general ahora. "
-                "Mi especialidad es el Parque Nacional Natural Los Nevados; puedo ayudarte con sus rutas, "
-                "especies, altitud o seguridad en montaña."
+                "No pude responder esa pregunta porque el modelo local no está disponible ahora. "
+                "Mi especialidad es Los Nevados: rutas, biodiversidad, altitud y seguridad en montaña."
             ),
-            sources=["Asistencia general local no disponible"],
+            sources=["Alcance de Kumanday"],
             tools_used=["consulta_general"],
             suggested_action="none",
             out_of_domain=True,
-            model="kumanday-local-offline",
+            model="kumanday-router",
             fallback_used=True,
             safety_alert=False,
         )
@@ -526,9 +535,10 @@ async def generate_chat_response(
             safety_alert=False,
         )
 
-    observations, sources, tools_used, safety_alert, suggested_action = _execute_agent_tools(
-        request, kb
-    )
+    observations, sources, tools_used, safety_alert, _suggested_action = _execute_agent_tools(request, kb)
+    route_question = any(word in norm_query for word in (
+        "ruta", "sendero", "estacion", "horario", "regla", "ingreso", "recorrido", "caminata", "brisas", "otun", "cisne", "tumbas"
+    ))
 
     species_context = (
         f"\nESPECIE RECIÉN ESCANEADA POR EL USUARIO: {request.last_species}"
@@ -542,7 +552,9 @@ async def generate_chat_response(
         "1. Usa ÚNICAMENTE los datos verificados de las HERRAMIENTAS EJECUTADAS abajo. Prohibido inventar datos, cifras o especies.\n"
         "2. NO divagues ni saludes largo. Máximo 110 palabras en español.\n"
         "3. Formato exacto: 1 párrafo breve con la respuesta directa, seguido de máximo 2 viñetas (•) con el dato ecológico o acción práctica.\n"
-        "4. Si hay riesgo médico o volcánico, prioriza la acción de descenso y seguridad humana.\n\n"
+        "4. Si hay riesgo médico o volcánico, prioriza la acción de seguridad humana.\n"
+        "5. No sugieras abrir rutas si el usuario no pregunta por rutas.\n"
+        "6. Responde preguntas generales con autonomía; si no tienes certeza, dilo y orienta brevemente a tu especialidad en Los Nevados.\n\n"
         f"OBSERVACIONES DE HERRAMIENTAS:\n{observations}{species_context}"
     )
 
@@ -584,7 +596,7 @@ async def generate_chat_response(
                 reply=reply,
                 sources=sources,
                 tools_used=tools_used,
-                suggested_action=suggested_action,
+                suggested_action=("open_safety" if safety_alert else "open_rutas" if route_question else "none"),
                 out_of_domain=False,
                 model=settings.ollama_model,
                 fallback_used=False,
@@ -598,7 +610,7 @@ async def generate_chat_response(
         reply=_build_offline_agent_reply(request, kb, safety_alert=safety_alert),
         sources=sources,
         tools_used=tools_used,
-        suggested_action=suggested_action,
+        suggested_action=("open_safety" if safety_alert else "open_rutas" if route_question else "none"),
         out_of_domain=False,
         model="offline-knowledge-base",
         fallback_used=True,
@@ -705,8 +717,8 @@ async def analyze_species_image(
     prompt = (
         "Eres el módulo visual de Kumanday, agente del PNN Los Nevados. Describe objetivamente la imagen "
         "que envió el usuario, aunque su contenido no pertenezca al parque. Si es ajena al parque, "
-        "identifícala con prudencia y deja claro en observacion que la visión general no es tu rol principal; "
-        "menciona brevemente que tu especialidad es la biodiversidad y seguridad de Los Nevados. "
+        "identifícala con prudencia y agrega una frase breve y amable: puedes reconocer objetos, "
+        "aunque tu especialidad es la biodiversidad y orientación del PNN Los Nevados. "
         f"{alt_context}\n"
         "REGLA CRÍTICA DE VERACIDAD:\n"
         "1. Primero identifica OBJETIVAMENTE qué aparece en la imagen (ejemplo: tigre, perro, gato, carro, persona, frailejón, cóndor, oso de anteojos, paisaje, etc.).\n"
@@ -764,6 +776,7 @@ async def analyze_species_image(
             category = _normalize_text(str(parsed.get("categoria") or "")).strip()
             categoria_fuera_de_ecosistema = category == "no pertenece al pnnn"
             is_environment = category == "paisaje"
+            is_object = category in {"objeto", "objeto cotidiano", "elemento cotidiano"}
 
             # Guardrail: block false positives when the detected object is clearly outside PNNN.
             detected_outside = _contains_non_pnnn_subject(objeto)
@@ -786,24 +799,35 @@ async def analyze_species_image(
                     fallback_used=False,
                 )
 
-            if not is_pnnn and (categoria_fuera_de_ecosistema or detected_outside):
+            if not is_pnnn and detected_outside:
                 return VisionResponse(
                     en_pnnn=False,
-                    nombre_comun=f"{objeto} (Fuera de ecosistema PNNN)",
-                    nombre_cientifico="No pertenece a la fauna/flora del PNN Los Nevados",
+                    nombre_comun=objeto,
+                    nombre_cientifico="Objeto o elemento fuera del catálogo de especies del parque",
                     tipo="Fuera de Ecosistema",
-                    estado="No nativa del área protegida",
-                    rol_ecologico=(
-                        "Esta captura no corresponde a una especie nativa registrada en los pisos "
-                        "térmicos del Parque Nacional Natural Los Nevados."
-                    ),
-                    alerta_conservacion=(
-                        "En el PNN Los Nevados está prohibido el ingreso de mascotas o especies "
-                        "introducidas. Apunta la cámara a flora o fauna silvestre del páramo."
-                    ),
+                    estado="No pertenece al ecosistema del parque",
+                    rol_ecologico="La imagen se reconoce fuera del catálogo de flora y fauna del PNN Los Nevados.",
+                    alerta_conservacion="Puedo reconocer objetos cotidianos, aunque mi especialidad es la biodiversidad y orientación del PNN Los Nevados.",
                     confianza=confianza,
                     descripcion_ia=observacion
-                    or f"Se detectó '{objeto}', lo cual no habita en el ecosistema del PNN Los Nevados.",
+                    or f"En la imagen se observa: {objeto}.",
+                    enfoque_notice=None,
+                    model=settings.ollama_vision_model,
+                    fallback_used=False,
+                )
+
+            if not is_pnnn and (is_object or categoria_fuera_de_ecosistema):
+                return VisionResponse(
+                    en_pnnn=False,
+                    nombre_comun=objeto,
+                    nombre_cientifico="Objeto o elemento fuera del catálogo de especies del parque",
+                    tipo="Objeto",
+                    estado="Elemento identificado; fuera del catálogo de especies",
+                    rol_ecologico="Kumanday puede reconocer elementos de uso cotidiano, aunque su catálogo se centra en la biodiversidad del parque.",
+                    alerta_conservacion="",
+                    confianza=confianza,
+                    descripcion_ia=observacion or f"En la imagen se observa: {objeto}.",
+                    enfoque_notice="Puedo ayudarte con objetos cotidianos; mi especialidad es la biodiversidad y las rutas del PNN Los Nevados.",
                     model=settings.ollama_vision_model,
                     fallback_used=False,
                 )
