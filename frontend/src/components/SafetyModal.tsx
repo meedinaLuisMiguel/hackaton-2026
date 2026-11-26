@@ -1,6 +1,8 @@
 import {
   AlertTriangle,
   CheckSquare,
+  Copy,
+  LocateFixed,
   Phone,
   Radio,
   Satellite,
@@ -9,18 +11,30 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
+import { tx, type Language } from '../i18n'
 import type { Coordenadas, EmergenciaContacto, ProtocoloVida } from '../types/paramo'
 
 interface SafetyModalProps {
   isOpen: boolean
-  altitude: number
+  language: Language
   coords: Coordenadas | null
+  onCoordsChange: (coords: Coordenadas | null) => void
   protocolos: Record<string, ProtocoloVida>
   directorio: EmergenciaContacto[]
   onClose: () => void
 }
 
 type ProtocolKey = 'soroche' | 'hipotermia' | 'volcanico'
+type GpsMessageKey =
+  | 'insecure'
+  | 'unsupported'
+  | 'requesting'
+  | 'received'
+  | 'denied'
+  | 'unavailable'
+  | 'timeout'
+  | 'copied'
+  | 'copy-failed'
 
 const PROTOCOL_TABS: Array<{ key: ProtocolKey; label: string }> = [
   { key: 'soroche', label: 'Soroche' },
@@ -28,10 +42,60 @@ const PROTOCOL_TABS: Array<{ key: ProtocolKey; label: string }> = [
   { key: 'volcanico', label: 'Volcán' },
 ]
 
+const ENGLISH_PROTOCOLS: Record<ProtocolKey, { title: string; symptoms: Record<string, string>; action: string }> = {
+  soroche: {
+    title: 'Acute Mountain Sickness (soroche) protocol',
+    symptoms: {
+      'Dolor de cabeza pulsátil': 'Throbbing headache',
+      'Náuseas o vómito': 'Nausea or vomiting',
+      'Mareo intenso': 'Severe dizziness',
+      'Fatiga extrema o falta de aire en reposo': 'Extreme fatigue or shortness of breath at rest',
+    },
+    action: '1. Stop ascending immediately. 2. Drink small sips of water. 3. Descend at least 500 metres with someone accompanying you. 4. Notify the guide or the Brisas/Potosí checkpoint.',
+  },
+  hipotermia: {
+    title: 'Hypothermia prevention protocol',
+    symptoms: {
+      'Temblores incontrolables': 'Uncontrollable shivering',
+      'Torpeza en manos': 'Clumsy hands',
+      'Habla arrastrada o confusión': 'Slurred speech or confusion',
+    },
+    action: '1. Get out of the wind. 2. Replace wet clothes with dry layers. 3. Give warm, sugary drinks if the person is conscious. 4. Descend immediately.',
+  },
+  volcanico: {
+    title: 'Volcanic safety protocol (Kumanday / Ruiz)',
+    symptoms: {
+      'Olor fuerte a azufre o irritación ocular': 'Strong sulfur smell or eye irritation',
+      'Caída repentina de ceniza volcánica': 'Sudden volcanic ashfall',
+      'Sismo sentido o instrucción de guardaparques': 'Felt earthquake or instruction from park staff',
+    },
+    action: '1. Cover your nose and mouth with a damp cloth or mask. 2. Move away from ravines and river channels because of flow hazards. 3. Evacuate to nearby high ground, following only your authorized guide and evacuation signs.',
+  },
+}
+
+const ENGLISH_CONTACTS: Record<string, { name: string; description: string }> = {
+  'pnnn-brisas': { name: 'Los Nevados National Natural Park — Brisas sector', description: 'High-mountain park rangers and access control' },
+  'cruz-roja-caldas': { name: 'Caldas Red Cross', description: 'Mountain rescue and pre-hospital care' },
+  'defensa-civil-villamaria': { name: 'Civil Defense — Villamaría', description: 'Search and evacuation in the páramo' },
+}
+
+const GPS_MESSAGES: Record<GpsMessageKey, { es: string; en: string }> = {
+  insecure: { es: 'La ubicación requiere HTTPS o abrir la app en localhost.', en: 'Location access requires HTTPS or opening the app on localhost.' },
+  unsupported: { es: 'Este navegador no ofrece geolocalización.', en: 'This browser does not support geolocation.' },
+  requesting: { es: 'Solicitando ubicación al dispositivo…', en: 'Requesting location from your device…' },
+  received: { es: 'Ubicación recibida. La precisión depende de la señal del dispositivo.', en: 'Location received. Accuracy depends on your device signal.' },
+  denied: { es: 'Permiso de ubicación denegado. Puedes habilitarlo en la configuración del navegador.', en: 'Location permission denied. You can enable it in your browser settings.' },
+  unavailable: { es: 'El dispositivo no pudo determinar la ubicación. Inténtalo en un lugar con mejor señal.', en: 'Your device could not determine your location. Try again where the signal is better.' },
+  timeout: { es: 'La solicitud de ubicación agotó el tiempo. Inténtalo de nuevo.', en: 'The location request timed out. Please try again.' },
+  copied: { es: 'Coordenadas copiadas.', en: 'Coordinates copied.' },
+  'copy-failed': { es: 'No se pudieron copiar. Mantén pulsadas las coordenadas para seleccionarlas.', en: 'Could not copy. Press and hold the coordinates to select them.' },
+}
+
 export function SafetyModal({
   isOpen,
-  altitude,
+  language,
   coords,
+  onCoordsChange,
   protocolos,
   directorio,
   onClose,
@@ -42,7 +106,10 @@ export function SafetyModal({
     hipotermia: [],
     volcanico: [],
   })
-  const [sosStep, setSosStep] = useState<'idle' | 'confirm' | 'sent'>('idle')
+  const [locating, setLocating] = useState(false)
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
+  const [gpsTimestamp, setGpsTimestamp] = useState<number | null>(null)
+  const [gpsMessage, setGpsMessage] = useState<GpsMessageKey | null>(null)
 
   if (!isOpen) return null
 
@@ -60,12 +127,62 @@ export function SafetyModal({
   }
 
   function handleClose() {
-    setSosStep('idle')
     onClose()
   }
 
-  const latLabel = coords ? `${coords.lat}° N` : '4.8950° N'
-  const lonLabel = coords ? `${Math.abs(coords.lon)}° W` : '75.3550° W'
+  function requestGpsLocation() {
+    onCoordsChange(null)
+    setGpsAccuracy(null)
+    setGpsTimestamp(null)
+    if (!window.isSecureContext) {
+      setGpsMessage('insecure')
+      return
+    }
+    if (!navigator.geolocation) {
+      setGpsMessage('unsupported')
+      return
+    }
+    setLocating(true)
+    setGpsMessage('requesting')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        onCoordsChange({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        })
+        setGpsAccuracy(position.coords.accuracy)
+        setGpsTimestamp(position.timestamp)
+        setGpsMessage('received')
+        setLocating(false)
+      },
+      (error) => {
+        const message: GpsMessageKey = error.code === error.PERMISSION_DENIED
+          ? 'denied'
+          : error.code === error.POSITION_UNAVAILABLE
+            ? 'unavailable'
+            : 'timeout'
+        setGpsMessage(message)
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
+  }
+
+  const coordinateLabel = coords
+    ? `${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`
+    : tx(language, 'Ubicación no obtenida', 'Location not obtained')
+
+  async function copyCoordinates() {
+    if (!coords) return
+    try {
+      await navigator.clipboard.writeText(`${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`)
+      setGpsMessage('copied')
+    } catch {
+      setGpsMessage('copy-failed')
+    }
+  }
+
+  const translatedProtocol = ENGLISH_PROTOCOLS[activeProtocol]
 
   return (
     <div
@@ -83,17 +200,17 @@ export function SafetyModal({
             </span>
             <div>
               <h2 id="safety-modal-title" className="text-base font-bold text-mountain-ink">
-                Protegiendo la Vida (SOS)
+                {tx(language, 'Protegiendo la Vida · SOS', 'Protecting Life · SOS')}
               </h2>
               <p className="font-mono text-[11px] text-mountain-muted tabular-nums">
-                {latLabel}, {lonLabel} • {altitude.toLocaleString('es-CO')} m
+                {coordinateLabel}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Cerrar módulo de emergencia"
+            aria-label={tx(language, 'Cerrar módulo de emergencia', 'Close emergency information')}
             className="min-h-[44px] min-w-[44px] rounded-full border border-mountain-border bg-mist text-mountain-ink inline-flex items-center justify-center cursor-pointer"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -101,12 +218,13 @@ export function SafetyModal({
         </div>
 
         <div className="p-4 flex flex-col gap-5">
+          <div className="rounded-2xl border border-sos-red/25 bg-sos-surface p-4 text-sm leading-relaxed text-on-sos-surface"><strong>{tx(language, 'Orientación informativa.', 'For information only.')}</strong> {tx(language, 'Esta pantalla no envía una alerta ni confirma condiciones actuales. Si hay peligro o síntomas, avisa de inmediato al guía experto autorizado y sigue sus instrucciones. No te separes del grupo.', 'This screen does not send an alert or confirm current conditions. If there is danger or someone has symptoms, notify the authorized guide immediately and follow their instructions. Stay with your group.')}</div>
           {/* Interactive Triage */}
           <section className="rounded-2xl border border-mountain-border bg-white p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-mountain-ink">Triaje Rápido de Síntomas</h3>
+              <h3 className="text-sm font-bold text-mountain-ink">{tx(language, 'Información para reconocer señales', 'Recognizing warning signs')}</h3>
               <span className="rounded-full bg-amber-surface px-2.5 py-0.5 text-[11px] font-semibold text-on-amber-surface">
-                Offline
+                {tx(language, 'Sin conexión', 'Offline')}
               </span>
             </div>
 
@@ -124,7 +242,7 @@ export function SafetyModal({
                         : 'bg-mist text-mountain-ink border border-mountain-border'
                     }`}
                   >
-                    {label}
+                    {language === 'en' ? ({ soroche: 'Altitude sickness', hipotermia: 'Hypothermia', volcanico: 'Volcano' }[key]) : label}
                   </button>
                 )
               })}
@@ -132,11 +250,11 @@ export function SafetyModal({
 
             {currentProto && (
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold text-frailejon">{currentProto.titulo}</p>
+                <p className="text-xs font-bold text-frailejon">{language === 'en' ? translatedProtocol.title : currentProto.titulo}</p>
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-semibold text-mountain-muted">
-                    Marca los síntomas presentes:
+                    {tx(language, 'Señales descritas en la ficha informativa (no es diagnóstico):', 'Signs described in this information sheet (not a diagnosis):')}
                   </span>
                   {currentProto.sintomas.map((symptom) => {
                     const checked = checkedSymptoms.includes(symptom)
@@ -156,7 +274,7 @@ export function SafetyModal({
                         ) : (
                           <Square className="h-4 w-4 shrink-0 text-mountain-muted" />
                         )}
-                        <span>{symptom}</span>
+                        <span>{language === 'en' ? translatedProtocol.symptoms[symptom] ?? symptom : symptom}</span>
                       </button>
                     )
                   })}
@@ -167,12 +285,12 @@ export function SafetyModal({
                     <AlertTriangle className="h-4 w-4 shrink-0 text-life-alert" />
                     <span>
                       {checkedSymptoms.length > 0
-                        ? `Acción inmediata (${checkedSymptoms.length} síntoma(s) marcado(s))`
-                        : 'Protocolo de acción inmediata'}
+                        ? tx(language, `Acción inmediata (${checkedSymptoms.length} síntoma(s) marcado(s))`, `Immediate action (${checkedSymptoms.length} symptom(s) selected)`)
+                        : tx(language, 'Protocolo de acción inmediata', 'Immediate action protocol')}
                     </span>
                   </div>
                   <p className="text-xs leading-relaxed text-on-amber-surface">
-                    {currentProto.accion_inmediata}
+                    {language === 'en' ? translatedProtocol.action : currentProto.accion_inmediata}
                   </p>
                 </div>
               </div>
@@ -183,67 +301,38 @@ export function SafetyModal({
           <section className="rounded-2xl border border-sos-red/30 bg-white p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Satellite className="h-5 w-5 text-sos-red" aria-hidden="true" />
-              <h3 className="text-sm font-bold text-mountain-ink">Baliza SOS Satelital</h3>
+              <h3 className="text-sm font-bold text-mountain-ink">{tx(language, 'Qué hacer para pedir ayuda', 'How to ask for help')}</h3>
             </div>
             <p className="text-xs leading-relaxed text-mountain-muted">
-              Prepara tu última coordenada GPS y altitud para envío de emergencia o reporte por radio
-              VHF sin señal celular.
+              {tx(language, 'Esta aplicación no tiene conexión satelital ni transmite una baliza. Si es útil y tienes señal, obtén tus coordenadas GPS y compártelas con el guía autorizado o el personal del parque. Solicita que activen el protocolo de emergencia.', 'This app has no satellite connection and cannot transmit an SOS beacon. If useful and you have a signal, obtain your GPS coordinates and share them with the authorized guide or park staff. Ask them to activate the emergency protocol.')}
             </p>
 
-            {sosStep === 'idle' && (
-              <button
-                type="button"
-                onClick={() => setSosStep('confirm')}
-                className="min-h-[52px] w-full rounded-full bg-sos-red px-4 text-sm font-bold text-white inline-flex items-center justify-center gap-2 hover:opacity-95 cursor-pointer"
-              >
-                <Satellite className="h-5 w-5" aria-hidden="true" />
-                <span>Activar Alerta SOS Satelital</span>
-              </button>
-            )}
-
-            {sosStep === 'confirm' && (
-              <div
-                role="alert"
-                className="rounded-xl border border-sos-red/30 bg-sos-surface p-3 flex flex-col gap-2.5"
-              >
-                <p className="text-xs font-semibold text-on-sos-surface">
-                  Confirma el envío de baliza de auxilio desde {latLabel}, {lonLabel} (
-                  {altitude.toLocaleString('es-CO')} m s.n.m.).
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSosStep('sent')}
-                    className="min-h-[44px] flex-1 rounded-full bg-sos-red px-3 text-xs font-bold text-white cursor-pointer"
-                  >
-                    Confirmar envío
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSosStep('idle')}
-                    className="min-h-[44px] rounded-full border border-mountain-border bg-white px-4 text-xs font-semibold text-mountain-ink cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                </div>
+            <button
+              type="button"
+              onClick={requestGpsLocation}
+              disabled={locating}
+              className="min-h-[52px] w-full rounded-full bg-sos-red px-4 text-sm font-bold text-white inline-flex items-center justify-center gap-2 hover:opacity-95 disabled:opacity-60 cursor-pointer"
+            >
+              <LocateFixed className="h-5 w-5" aria-hidden="true" />
+              <span>{locating ? tx(language, 'Solicitando GPS…', 'Requesting GPS…') : tx(language, 'Obtener coordenadas GPS', 'Get GPS coordinates')}</span>
+            </button>
+            {coords && (
+              <div className="rounded-xl border border-sos-red/30 bg-sos-surface p-3 text-center">
+                <p className="font-mono text-sm font-bold tabular-nums text-on-sos-surface" aria-label={tx(language, 'Coordenadas en grados decimales', 'Coordinates in decimal degrees')}>{coordinateLabel}</p>
+                {gpsAccuracy !== null && <p className="mt-1 text-xs text-on-sos-surface">{tx(language, `Precisión estimada: ±${Math.round(gpsAccuracy)} m`, `Estimated accuracy: ±${Math.round(gpsAccuracy)} m`)}</p>}
+                {gpsTimestamp !== null && <p className="mt-1 text-xs text-on-sos-surface">{tx(language, 'Obtenidas', 'Obtained')} {new Date(gpsTimestamp).toLocaleTimeString(language === 'en' ? 'en-US' : 'es-CO')}</p>}
+                <button type="button" onClick={() => void copyCoordinates()} className="mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-white px-4 text-xs font-bold text-sos-red">
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />{tx(language, 'Copiar coordenadas', 'Copy coordinates')}
+                </button>
               </div>
             )}
-
-            {sosStep === 'sent' && (
-              <div
-                role="status"
-                className="rounded-xl border border-sos-red/30 bg-sos-surface p-3 text-xs font-semibold text-on-sos-surface"
-              >
-                Baliza SOS en cola ({latLabel}, {lonLabel} • {altitude.toLocaleString('es-CO')} m).
-                Permanece en punto visible, abrígate y desciende si es seguro.
-              </div>
-            )}
+            {gpsMessage && <p role="status" className="text-center text-xs text-mountain-muted">{GPS_MESSAGES[gpsMessage]?.[language] ?? tx(language, 'Estado de ubicación actualizado.', 'Location status updated.')}</p>}
           </section>
 
           {/* Offline Emergency Directory */}
           <section className="flex flex-col gap-2.5">
             <h3 className="text-sm font-bold text-mountain-ink">
-              Directorio de Emergencias (Caldas)
+              {tx(language, 'Directorio de Emergencias (Caldas)', 'Emergency directory (Caldas)')}
             </h3>
             {directorio.map((contact) => (
               <article
@@ -252,12 +341,12 @@ export function SafetyModal({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="text-xs font-bold text-mountain-ink">{contact.entidad}</h4>
-                    <p className="text-[11px] text-mountain-muted">{contact.descripcion}</p>
+                    <h4 className="text-xs font-bold text-mountain-ink">{language === 'en' ? ENGLISH_CONTACTS[contact.id]?.name ?? contact.entidad : contact.entidad}</h4>
+                    <p className="text-[11px] text-mountain-muted">{language === 'en' ? ENGLISH_CONTACTS[contact.id]?.description ?? contact.descripcion : contact.descripcion}</p>
                   </div>
                   <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-moss-container px-2.5 py-0.5 font-mono text-[11px] font-semibold text-frailejon-deep">
                     <Radio className="h-3 w-3" aria-hidden="true" />
-                    <span>{contact.canal}</span>
+                    <span>{language === 'en' ? contact.canal.replace(/^Línea /, 'Line ') : contact.canal}</span>
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-mountain-border/50 pt-2">
@@ -269,7 +358,7 @@ export function SafetyModal({
                     className="min-h-[44px] rounded-full bg-frailejon px-4 text-xs font-semibold text-white inline-flex items-center gap-1.5 hover:bg-frailejon-deep"
                   >
                     <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Llamar</span>
+                    <span>{tx(language, 'Llamar', 'Call')}</span>
                   </a>
                 </div>
               </article>

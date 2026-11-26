@@ -1,10 +1,14 @@
 """FastAPI entry point for Kumanday — Agente IA del PNN Los Nevados."""
 
+import csv
+import io
+import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query, Request
+import pymupdf
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -21,6 +25,7 @@ from backend.schemas import (
     ChatResponse,
     EmergenciaContacto,
     Especie,
+    Estacion,
     HealthResponse,
     ProtocoloVida,
     RadarResponse,
@@ -30,6 +35,16 @@ from backend.schemas import (
 )
 
 settings = get_settings()
+MAX_GUIDE_BYTES = 8 * 1024 * 1024
+SUPPORTED_GUIDE_SUFFIXES = {".pdf", ".txt", ".csv", ".docx"}
+
+UTON_STATIONS = [
+    Estacion(id="brisas", nombre="Brisas", altitud="Punto de entrada", tema="La puerta del páramo", resumen="Brisas introduce el recorrido norte y su importancia hídrica. Las fuentes entregadas no indican una altitud de estación para Brisas.", experiencia="Inicia observando el paisaje y conectando el recorrido con el agua que nace en la alta montaña.", fuentes=["Guion turístico zona norte, p. 5"]),
+    Estacion(id="aguacerales", nombre="Aguacerales", altitud="4.160 m s. n. m.", tema="Agua que captura el páramo", resumen="La vegetación, los musgos y el suelo participan en la captación y regulación del agua.", experiencia="Observa la niebla, los frailejones y los hilos de agua. Sigue el sendero para proteger la vegetación.", fuentes=["Guion Ecoturístico UTON 2024, pp. 5–6", "Guion turístico zona norte, p. 5"]),
+    Estacion(id="arenales", nombre="Arenales", altitud="4.290 m s. n. m.", tema="Dunas, viento y memoria", resumen="El viento modela depósitos de arena en un paisaje con memoria de la historia del esquí.", experiencia="Contempla las dunas desde el sendero y evita pisarlas: las huellas pueden permanecer por meses.", fuentes=["Guion Ecoturístico UTON 2024, p. 7", "Guion turístico zona norte, pp. 5–6"]),
+    Estacion(id="lunares", nombre="Lunares / Valle Lunar", altitud="4.350 m s. n. m.", tema="La roca registra el cambio", resumen="La gelifracción fractura la roca cuando el agua en sus grietas se congela; la oxidación puede producir tonos rojizos.", experiencia="Busca fracturas y cambios de color sin mover ni llevarte rocas.", fuentes=["Guion Ecoturístico UTON 2024, pp. 8–9", "Guion turístico zona norte, p. 6"]),
+    Estacion(id="valle-tumbas", nombre="Valle de las Tumbas", altitud="4.460 m s. n. m.", tema="Memoria cultural y cuidado", resumen="El paisaje guarda relatos y nombres transmitidos por tradición oral. El ascenso más allá del límite autorizado está restringido.", experiencia="Escucha los relatos con respeto. Para confirmar acceso, clima o condiciones volcánicas, consulta al guía autorizado.", fuentes=["Guion Ecoturístico UTON 2024, pp. 9–10", "Guion turístico zona norte, pp. 6–7"]),
+]
 
 
 @asynccontextmanager
@@ -105,6 +120,84 @@ async def get_rutas() -> JSONResponse:
     """Return the verified official trails of PNN Los Nevados."""
     rutas = [r.model_dump() for r in load_knowledge().rutas]
     return JSONResponse(content=rutas, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/api/estaciones", response_model=list[Estacion])
+async def get_estaciones() -> list[Estacion]:
+    """Return the five interpretation stops and their UTON guide citations."""
+    return UTON_STATIONS
+
+
+@app.get("/api/fuentes/uton")
+async def default_sources() -> dict[str, object]:
+    """Return reviewed starter chunks from the two challenge source guides."""
+    import json
+    from pathlib import Path
+
+    data_path = Path(__file__).parent / "data" / "uton_guides.json"
+    documents = json.loads(data_path.read_text(encoding="utf-8"))
+    reviewed_chunks = []
+    for document in documents:
+        for page in document["pages"]:
+            clean = re.sub(r"\s+", " ", page["text"]).strip()
+            for offset in range(0, len(clean), 900):
+                text = clean[offset : offset + 900].strip()
+                if text:
+                    reviewed_chunks.append({"text": text, "page": page["page"], "source": document["name"]})
+    return {
+        "chunks": reviewed_chunks,
+        "notice": "Las condiciones actuales de acceso, clima y actividad volcánica requieren confirmación del guía autorizado.",
+    }
+
+
+@app.post("/api/fuentes/uton")
+async def upload_uton(file: UploadFile) -> dict[str, object]:
+    """Validate and extract a local UTON guide for the current application session."""
+    suffix = "." + file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
+    if suffix not in SUPPORTED_GUIDE_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Formato no admitido. Usa PDF, TXT, CSV o DOCX.")
+    content = await file.read(MAX_GUIDE_BYTES + 1)
+    if len(content) > MAX_GUIDE_BYTES:
+        raise HTTPException(status_code=413, detail="El archivo supera el máximo de 8 MiB.")
+    try:
+        if suffix == ".txt":
+            pages = [content.decode("utf-8-sig")]
+        elif suffix == ".csv":
+            rows = csv.reader(io.StringIO(content.decode("utf-8-sig")))
+            pages = ["\n".join(" | ".join(row) for row in rows)]
+        elif suffix == ".pdf":
+            reader = pymupdf.open(stream=content, filetype="pdf")
+            pages = [page.get_text() for page in reader]
+            if pages and "UTON" not in pages[0].upper() and "LOS NEVADOS" not in pages[0].upper():
+                raise ValueError("El PDF no parece ser una fuente UTON del PNN Los Nevados.")
+        else:
+            from zipfile import ZipFile
+            from xml.etree import ElementTree
+
+            with ZipFile(io.BytesIO(content)) as archive:
+                if "word/document.xml" not in archive.namelist():
+                    raise ValueError("DOCX inválido")
+                root = ElementTree.fromstring(archive.read("word/document.xml"))
+            ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+            paragraphs = ["".join(node.text or "" for node in p.findall(".//w:t", ns)) for p in root.findall(".//w:p", ns)]
+            pages = ["\n".join(p for p in paragraphs if p.strip())]
+        if suffix != ".pdf":
+            joined_text = " ".join(pages[:3]).casefold()
+            if not any(term in joined_text for term in ("uton", "nevados", "aguacerales", "arenales", "lunares")):
+                raise ValueError("El archivo no parece contener una fuente del recorrido UTON.")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="No pude leer el archivo. Verifica que no esté dañado y vuelve a intentarlo.") from exc
+
+    chunks: list[dict[str, object]] = []
+    for page_number, page_text in enumerate(pages, start=1):
+        clean = re.sub(r"\s+", " ", page_text).strip()
+        for offset in range(0, len(clean), 900):
+            text = clean[offset : offset + 900].strip()
+            if text:
+                chunks.append({"text": text, "page": page_number, "source": file.filename or "Fuente UTON"})
+    if not chunks:
+        raise HTTPException(status_code=422, detail="El archivo no contiene texto que pueda citar.")
+    return {"filename": file.filename, "chunks": chunks, "pages": len(pages)}
 
 
 @app.get("/api/especies", response_model=list[Especie])

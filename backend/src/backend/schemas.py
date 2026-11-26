@@ -81,6 +81,18 @@ class KnowledgeBase(BaseModel):
     directorio_emergencias: list[EmergenciaContacto]
 
 
+class Estacion(BaseModel):
+    """Interpretation stop grounded in the UTON source guides."""
+
+    id: str
+    nombre: str
+    altitud: str
+    tema: str
+    resumen: str
+    experiencia: str
+    fuentes: list[str]
+
+
 class HealthResponse(BaseModel):
     """Health check status including local Ollama availability."""
 
@@ -121,6 +133,8 @@ class ChatRequest(BaseModel):
     ruta_id: str | None = None
     last_species: str | None = Field(default=None, max_length=120)
     history: list[ChatMessage] = Field(default_factory=list, max_length=8)
+    language: Literal["es", "en"] = "es"
+    guide_chunks: list[dict[str, object]] = Field(default_factory=list, max_length=300)
 
 
 class ChatResponse(BaseModel):
@@ -130,11 +144,12 @@ class ChatResponse(BaseModel):
     reply: str
     sources: list[str]
     tools_used: list[str] = Field(default_factory=list)
-    suggested_action: Literal["none", "open_safety", "open_rutas", "open_vision"] = "none"
+    suggested_action: Literal["none", "open_safety", "open_rutas", "open_vision", "open_estaciones"] = "none"
     out_of_domain: bool = False
     model: str
     fallback_used: bool = False
     safety_alert: bool = False
+    insufficient_evidence: bool = False
 
 
 class VisionRequest(BaseModel):
@@ -144,6 +159,7 @@ class VisionRequest(BaseModel):
     image_base64: str = Field(..., min_length=16, max_length=11_300_000)
     altitud_m: int | None = Field(default=None, ge=0, le=6000)
     hint: str | None = Field(default=None, max_length=120)
+    language: Literal["es", "en"] = "es"
 
 
 class VisionResponse(BaseModel):

@@ -2,6 +2,7 @@
 
 import base64
 import io
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -16,6 +17,12 @@ def _make_sample_png_base64(size: tuple[int, int] = (120, 120)) -> str:
     img.save(buf, format="PNG")
     encoded = base64.b64encode(buf.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+def _bundled_sample_base64(name: str) -> str:
+    image_path = Path(__file__).resolve().parents[2] / "frontend" / "public" / "samples" / f"{name}.jpg"
+    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
 
 
 def _asgi_client() -> httpx.AsyncClient:
@@ -42,6 +49,34 @@ async def test_get_rutas_especies_and_protocolos() -> None:
         data = proto_resp.json()
         assert "soroche" in data["protocolos_vida"]
         assert len(data["directorio_emergencias"]) == 3
+
+
+async def test_estaciones_are_grounded_in_uton_guides() -> None:
+    async with _asgi_client() as client:
+        response = await client.get("/api/estaciones")
+    assert response.status_code == 200
+    stations = response.json()
+    assert [item["id"] for item in stations] == ["brisas", "aguacerales", "arenales", "lunares", "valle-tumbas"]
+    assert all(item["fuentes"] for item in stations)
+
+
+async def test_uton_upload_extracts_text_and_page() -> None:
+    async with _asgi_client() as client:
+        response = await client.post("/api/fuentes/uton", files={"file": ("guia.txt", "Aguacerales conserva agua del páramo", "text/plain")})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["chunks"][0]["page"] == 1
+    assert "Aguacerales" in body["chunks"][0]["text"]
+
+
+async def test_chat_abstains_without_cited_uton_evidence() -> None:
+    async with _asgi_client() as client:
+        response = await client.post("/api/chat", json={"message": "¿Cuál es el estado del volcán hoy?", "guide_chunks": [{"text": "El volcán está activo", "page": 7, "source": "Guion UTON"}]})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["insufficient_evidence"] is True
+    assert "guía experto autorizado" in body["reply"]
+    assert body["sources"] == []
 
 
 async def test_get_radar_endpoint() -> None:
@@ -92,6 +127,110 @@ async def test_chat_general_offline_explains_local_specialty() -> None:
     assert "especialidad" in resp.json()["reply"]
 
 
+async def test_chat_broad_biodiversity_question_uses_local_species_catalog() -> None:
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock()) as ollama:
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/chat",
+                json={
+                    "message": "¿No hay ningún ser vivo o especie?",
+                    "guide_chunks": [
+                        {
+                            "text": "El guía menciona una especie en el recorrido del Valle Lunar.",
+                            "page": 8,
+                            "source": "Guion Ecoturístico UTON 2024",
+                            "citation": "Guion Ecoturístico UTON 2024 · p. 8",
+                        }
+                    ],
+                },
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "12" in body["reply"]
+    assert "Frailejón del Ruiz" in body["reply"]
+    assert "No conozco" not in body["reply"]
+    assert body["sources"] == ["Catálogo local de especies PNN Los Nevados"]
+    assert "Guion Ecoturístico" not in body["reply"]
+    assert body["insufficient_evidence"] is True
+    assert body["out_of_domain"] is False
+    ollama.assert_not_awaited()
+
+
+async def test_chat_plural_species_query_matches_local_catalog_entry() -> None:
+    mock = {"message": {"content": "El catálogo local registra el Frailejón del Ruiz."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/chat",
+                json={"message": "¿Hay frailejones en el parque?"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "Frailejón del Ruiz" in body["reply"]
+    assert body["sources"] == ["Frailejón del Ruiz"]
+    assert "no una cita UTON" in body["reply"]
+
+
+async def test_chat_uncovered_ecology_answer_is_labeled_as_general_and_unverified() -> None:
+    mock = {"message": {"content": "Los hongos descomponen materia orgánica y reciclan nutrientes."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)) as ollama:
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/chat",
+                json={"message": "¿Qué función cumplen los hongos del páramo?"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "reciclan nutrientes" in body["reply"]
+    assert "no está validada por UTON" in body["reply"]
+    assert body["sources"] == ["Respuesta general de IA local · no validada por UTON"]
+    assert body["insufficient_evidence"] is True
+    assert body["out_of_domain"] is False
+    call = ollama.await_args
+    assert call is not None
+    prompt = call.args[1]["messages"][0]["content"]
+    assert "no deduzcas" in prompt.lower()
+    assert "presencia" in prompt.lower()
+
+
+async def test_chat_uncovered_ecology_answers_in_selected_english() -> None:
+    mock = {"message": {"content": "Lichens help stabilize exposed soils."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/chat",
+                json={
+                    "message": "What role do lichens play in the superpáramo?",
+                    "language": "en",
+                },
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "stabilize exposed soils" in body["reply"]
+    assert "not validated by UTON" in body["reply"]
+    assert body["sources"] == ["General local AI response · not validated by UTON"]
+
+
+async def test_chat_sustainability_does_not_trigger_safety_abstention() -> None:
+    mock = {"message": {"content": "La sostenibilidad busca conservar recursos a largo plazo."}}
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=mock)):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/chat",
+                json={"message": "¿Qué significa sostenibilidad en el páramo?"},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["safety_alert"] is False
+    assert body["suggested_action"] == "none"
+    assert "no está validada por UTON" in body["reply"]
+
+
 async def test_chat_fallback_when_ollama_unavailable() -> None:
     with patch(
         "backend.rag_engine._post_to_ollama",
@@ -110,8 +249,8 @@ async def test_chat_fallback_when_ollama_unavailable() -> None:
     assert body["fallback_used"] is True
     assert body["safety_alert"] is True
     assert body["suggested_action"] == "open_safety"
-    assert "activar_protocolo_vida" in body["tools_used"]
-    assert "DESCENDER" in body["reply"]
+    assert "guía experto autorizado" in body["reply"]
+    assert body["sources"] == []
 
 
 async def test_chat_uses_ollama_response_when_available() -> None:
@@ -120,13 +259,13 @@ async def test_chat_uses_ollama_response_when_available() -> None:
         async with _asgi_client() as client:
             resp = await client.post(
                 "/api/chat",
-                json={"message": "¿Cómo produce agua el frailejón?", "altitud_m": 3850},
+                json={"message": "¿Cómo produce agua el frailejón?", "altitud_m": 3850, "guide_chunks": [{"text": "El frailejón capta humedad con sus hojas vellosas y ayuda a regular el agua.", "page": 5, "source": "Guion Ecoturístico UTON 2024"}]},
             )
     assert resp.status_code == 200
     body = resp.json()
     assert body["agent_name"] == "Kumanday"
     assert body["fallback_used"] is False
-    assert "consultar_especie" in body["tools_used"]
+    assert "recuperar_fragmentos_uton" in body["tools_used"]
     assert "frailejón" in body["reply"].lower()
 
 
@@ -213,6 +352,91 @@ async def test_vision_strict_format_validation_and_frailejon_match() -> None:
     assert body["nombre_cientifico"] == "Espeletia hartwegiana"
 
 
+async def test_vision_uses_known_frailejon_sample_if_model_cannot_map_it() -> None:
+    uncertain = {
+        "message": {
+            "content": (
+                '{"objeto_detectado":"Planta con hojas plateadas y flores amarillas",'
+                '"es_especie_pnnn":false,"especie_id":"ninguna","categoria":"Flora",'
+                '"confianza":"Alta","observacion":"Roseta con flores amarillas."}'
+            )
+        }
+    }
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=uncertain)):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/vision",
+                json={
+                    "image_base64": _bundled_sample_base64("frailejon"),
+                    "hint": "sample:frailejon",
+                },
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["en_pnnn"] is True
+    assert body["nombre_comun"] == "Frailejón del Ruiz"
+    assert body["nombre_cientifico"] == "Espeletia hartwegiana"
+    assert body["confianza"] == "Catálogo Offline Verificado"
+    assert body["fallback_used"] is True
+
+
+async def test_vision_does_not_trust_sample_hint_for_an_uploaded_image() -> None:
+    uncertain = {
+        "message": {
+            "content": (
+                '{"objeto_detectado":"Planta sin identificar","es_especie_pnnn":false,'
+                '"especie_id":"ninguna","categoria":"Flora","confianza":"Baja",'
+                '"observacion":"No hay rasgos suficientes para confirmar la especie."}'
+            )
+        }
+    }
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=uncertain)):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/vision",
+                json={
+                    "image_base64": _make_sample_png_base64(),
+                    "hint": "sample:frailejon",
+                },
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["en_pnnn"] is False
+    assert body["tipo"] == "Sin Confirmación"
+    assert body["nombre_comun"] != "Frailejón del Ruiz"
+
+
+async def test_vision_normalizes_numeric_confidence_for_catalog_match() -> None:
+    identified = {
+        "message": {
+            "content": (
+                '{"objeto_detectado":"Frailejón","es_especie_pnnn":true,'
+                '"especie_id":"frailejon","categoria":"Flora",'
+                '"confianza":0.85,"observacion":"Roseta de hojas plateadas y flores amarillas."}'
+            )
+        }
+    }
+    with patch("backend.rag_engine._post_to_ollama", new=AsyncMock(return_value=identified)) as ollama:
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/vision",
+                json={"image_base64": _bundled_sample_base64("frailejon")},
+            )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["en_pnnn"] is True
+    assert body["nombre_cientifico"] == "Espeletia hartwegiana"
+    assert body["confianza"] == "Alta"
+    call = ollama.await_args
+    assert call is not None
+    prompt = call.args[1]["messages"][0]["content"]
+    assert "roseta" in prompt.lower()
+    assert "vellosas" in prompt.lower()
+
+
 async def test_vision_blocks_tiger_misclassification_as_bear() -> None:
     # Even if a small model confuses a tiger with 'oso', the non-PNNN subject guardrail blocks it
     mock_confused_tiger = {
@@ -269,9 +493,9 @@ async def test_vision_offline_behavior_with_and_without_hint() -> None:
             with_hint = await client.post(
                 "/api/vision",
                 json={
-                    "image_base64": _make_sample_png_base64(),
+                    "image_base64": _bundled_sample_base64("chivito"),
                     "altitud_m": 4100,
-                    "hint": "chivito",
+                    "hint": "sample:chivito",
                 },
             )
             without_hint = await client.post(
@@ -288,3 +512,45 @@ async def test_vision_offline_behavior_with_and_without_hint() -> None:
     assert without_hint.status_code == 200
     assert without_hint.json()["en_pnnn"] is False
     assert without_hint.json()["tipo"] == "Sin Confirmación"
+
+
+async def test_english_safety_question_abstains_in_english() -> None:
+    async with _asgi_client() as client:
+        response = await client.post(
+            "/api/chat",
+            json={"message": "I have a headache and feel dizzy", "language": "en"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["safety_alert"] is True
+    assert body["suggested_action"] == "open_safety"
+    assert "authorized expert guide" in body["reply"]
+    assert "No conozco" not in body["reply"]
+
+
+async def test_vision_uses_requested_language_for_generated_observation() -> None:
+    response_payload = {
+        "message": {
+            "content": (
+                '{"objeto_detectado":"buffy helmetcrest","es_especie_pnnn":true,'
+                '"especie_id":"chivito","categoria":"Fauna","confianza":"Alta",'
+                '"observacion":"A hummingbird is perched on a frailejón flower."}'
+            )
+        }
+    }
+    ollama = AsyncMock(return_value=response_payload)
+    with patch("backend.rag_engine._post_to_ollama", new=ollama):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/vision",
+                json={
+                    "image_base64": _make_sample_png_base64(),
+                    "language": "en",
+                },
+            )
+
+    assert response.status_code == 200
+    assert "A hummingbird" in response.json()["descripcion_ia"]
+    prompt = ollama.call_args.args[1]["messages"][0]["content"]
+    assert "Write all user-facing text values in English" in prompt

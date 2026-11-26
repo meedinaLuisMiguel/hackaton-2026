@@ -50,16 +50,16 @@ El backend nativo usa el Ollama de este equipo. Docker Compose configura `OLLAMA
 | `GET /api/especies` | Catálogo de 12 especies locales. |
 | `GET /api/radar?altitud=4150` | Piso térmico, especies probables, temperatura estimada y recomendación de seguridad para una altitud de 0 a 6000 m. |
 | `GET /api/protocolos` | Protocolos informativos y directorio local de emergencias. |
-| `POST /api/chat` | Consulta con contexto/herramientas del parque; admite respuesta general breve que indica la especialidad de Kumanday. Usa respaldo local si Ollama no está disponible. |
+| `POST /api/chat` | Prioriza fragmentos UTON con página; si no hay respaldo, permite respuestas del catálogo local o explicaciones generales de naturaleza con aviso explícito de que no están validadas por UTON. No infiere presencia local de especies. Se abstiene ante actualidad, acceso y seguridad. |
 | `POST /api/vision` | Descripción de imagen e identificación prudente contra el catálogo local; puede reconocer objetos cotidianos y los distingue de especies del parque. |
 
-Los contratos de entrada y salida se definen en `src/backend/schemas.py`. Los cuerpos de ejemplo se pueden consultar en Swagger (`/docs`). Para visión, el backend acepta JPEG, PNG y WebP, limita el archivo original a 8 MiB y exige dimensiones mínimas de 32×32 píxeles; aplica orientación EXIF y normaliza la imagen para Ollama. Los hints están reservados para las muestras de demostración y no reemplazan la identificación de una foto arbitraria.
+Los contratos de entrada y salida se definen en `src/backend/schemas.py`. Los cuerpos de ejemplo se pueden consultar en Swagger (`/docs`). Para visión, el backend acepta JPEG, PNG y WebP, limita el archivo original a 8 MiB y exige dimensiones mínimas de 32×32 píxeles; aplica orientación EXIF y normaliza la imagen para Ollama. Los hints solo activan la ficha determinista si los bytes coinciden con una muestra local empaquetada; no pueden convertir una foto arbitraria en una identificación confirmada.
 
 ## Respaldo y límites
 
 - Radar, rutas, especies, protocolos y directorio de emergencias no dependen de Ollama.
-- El chat de dominio se fundamenta en herramientas y datos locales; ante indisponibilidad del modelo usa respuestas deterministas para consultas cubiertas.
-- Las consultas generales usan el modelo local cuando está disponible. El respaldo sin modelo se limita a explicar la especialidad del agente.
+- El chat usa primero fragmentos UTON con documento y página. Para temas de naturaleza sin evidencia UTON puede generar respuestas generales, marcadas como no validadas, sin afirmar presencia de especies o condiciones locales.
+- El catálogo local responde consultas generales de biodiversidad sin Ollama. Las respuestas generativas requieren el modelo; sin él, las preguntas no cubiertas por el catálogo o las fuentes UTON se abstienen.
 - La visión no inventa identificaciones científicas cuando no puede validar una especie. Puede describir objetos fuera del catálogo e indicar el enfoque de Kumanday.
 - La información médica y volcánica es orientativa y no sustituye los protocolos oficiales ni al personal del parque.
 

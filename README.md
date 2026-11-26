@@ -1,49 +1,44 @@
-# Kumanday — Guía local del PNN Los Nevados
+# Kumanday · Interpretación del recorrido norte
 
-MVP mobile-first para explorar rutas, especies y orientación de seguridad de alta montaña. El catálogo y los respaldos deterministas están incluidos localmente. Las funciones de chat y visión usan Ollama cuando el backend puede alcanzar el modelo configurado.
+Prototipo mobile-first para descubrir cinco estaciones del PNN Los Nevados y consultar a Kumanday, que prioriza la evidencia de los guiones entregados por UTON. Cada respuesta respaldada muestra documento y página. Si una pregunta segura de naturaleza no está cubierta, la IA local puede ofrecer una explicación general con un aviso explícito de que no está validada por UTON; eso no confirma presencia de especies en el parque. Las preguntas médicas, volcánicas, de acceso o actualidad se derivan a un guía experto autorizado.
 
-## Funciones
+## Experiencia
 
-- Radar de altitud con lectura de geolocalización del dispositivo y ajuste simulado.
-- Tres rutas y catálogo de especies incluidos en la app; estaciones y reglas se consultan al expandir cada ruta. La bitácora se guarda localmente.
-- Identificación visual con Ollama y fichas locales para muestras de demostración.
-- Chat Kumanday con contexto de altitud, especies y rutas, más respuestas deterministas si Ollama no está disponible.
-- Triaje informativo y directorio de emergencias.
+- **Estaciones:** Brisas, Aguacerales, Arenales, Lunares/Valle Lunar y Valle de las Tumbas, con experiencias breves y citas de fuente.
+- **Kumanday IA:** prioriza texto paginado de los guiones UTON y muestra documento/página cuando lo cita. Para preguntas seguras de naturaleza sin respaldo UTON, puede usar Ollama local con un aviso fijo de que la explicación es general y no está validada por UTON; no deduce presencia o abundancia de especies en el parque. El catálogo local responde preguntas generales de biodiversidad sin presentarse como inventario completo. Las preguntas de actualidad, acceso o seguridad se abstienen y remiten a un guía autorizado. Sin modelo, se limita al catálogo determinista y extractos UTON citados.
+- **Fuente UTON:** se puede cargar PDF, TXT, CSV o DOCX (máximo 8 MiB). La carga reemplaza la fuente inicial en la sesión actual y se elimina al cerrar/recargar. No constituye aprobación oficial ni se guarda para otros usuarios.
+- **Idioma:** selector español/inglés. Como los guiones entregados están en español, las respuestas sustentadas se mantienen en español para evitar cambios de sentido no validados.
+- **Protegiendo la Vida · SOS:** información sobre señales, directorio local y pasos para pedir ayuda al personal. La app no diagnostica ni transmite una alerta satelital.
+- **Herramientas secundarias:** bitácora local y lente de visión. Desde SOS, la persona puede solicitar y copiar sus coordenadas GPS junto con la precisión estimada por el dispositivo; la app no envía alertas satelitales.
 
-Las rutas muestran estaciones y reglas obligatorias; no hay descarga de mapas. La bitácora se guarda localmente en este navegador. El acceso offline requiere haber cargado la aplicación. El contenido de seguridad es informativo y no sustituye protocolos oficiales ni instrucciones del personal del parque.
+La demo offline debe cargarse antes de desconectar el dispositivo. La IA depende del modelo Ollama local, no de internet. No hay mapas de rutas descargables.
 
-## Interfaz y navegación móvil
+## Ejecutar en Windows
 
-- El tema claro/oscuro ajusta las superficies, el texto y los avisos de seguridad para mantener contraste legible.
-- El compositor del chat permanece fijo sobre la navegación inferior en pantallas pequeñas y se desplaza cuando aparece el teclado.
-- El pie de créditos se mantiene al borde inferior en pestañas con poco contenido, justo encima de la navegación; acompaña al contenido si la pestaña es larga. El chat reserva espacio adicional para su compositor fijo.
-- En **Rutas & GPS**, abre **Ver estaciones y reglas** para consultar los detalles del recorrido; la tarjeta queda visible al expandirla.
-- El botón flotante de flecha sube al inicio cuando la página ya se desplazó. En móvil también se puede deslizar hacia arriba sobre el contenido para volver arriba. Los gestos en controles, botones y campos de entrada se reservan para esos controles.
-- El deslizador de altitud modifica una referencia simulada. No representa una lectura GPS real; la ubicación real se solicita con **Sincronizar GPS del dispositivo**.
-- La bienvenida inmersiva dura 7,2 segundos: revela el amanecer, las capas del páramo, curvas topográficas y un frailejón. El botón **Saltar animación** permite entrar de inmediato; con movimiento reducido, la portada aparece directamente en su estado final.
+Requisitos: Python 3.15, `uv`, Node.js y `pnpm`. Para generación local instala Ollama y el modelo configurado.
 
-## Demo nativa en Windows con Ollama en este PC
+1. Instala las dependencias del backend:
 
-Requisitos: Ollama, `gemma3:4b`, `uv` y `pnpm` instalados.
+   ```powershell
+   cd backend
+   uv sync
+   ```
 
-1. Terminal de Ollama:
+2. (Opcional) Descarga e inicia Ollama:
 
    ```powershell
    ollama pull gemma3:4b
    ollama serve
    ```
 
-2. En otra terminal, iniciar backend:
+3. En otra terminal inicia FastAPI:
 
    ```powershell
    cd backend
-   uv sync
    uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
-   El backend nativo apunta por defecto a `http://localhost:11434`.
-
-3. En otra terminal, iniciar frontend:
+4. Instala e inicia la app:
 
    ```powershell
    cd frontend
@@ -51,30 +46,23 @@ Requisitos: Ollama, `gemma3:4b`, `uv` y `pnpm` instalados.
    pnpm dev
    ```
 
-4. Abrir `http://localhost:5173`. En el encabezado y en **Kumanday IA**, confirma que aparece “IA local lista” y que se muestra el modelo configurado. Si indica que el modelo falta o no está disponible, chat/visión usan el respaldo cuando esté habilitado.
-
-## Docker Compose
-
-```powershell
-docker compose up --build
-```
-
-Este modo ejecuta Ollama dentro de Docker y guarda el modelo en un volumen. Para usar Ollama instalado en el host, configura `OLLAMA_BASE_URL=http://host.docker.internal:11434` en el servicio backend y asegúrate de que el host permite conexiones desde Docker.
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000` (documentación en `/docs`)
+Abre `http://localhost:5173`. API y Swagger: `http://localhost:8000/docs`.
 
 ## Verificación
-
-```powershell
-cd frontend
-pnpm lint
-pnpm build
-```
 
 ```powershell
 cd backend
 uv run ruff check src tests
 uv run ty check
 uv run pytest -v
+
+cd frontend
+pnpm lint
+pnpm build
 ```
+
+## Fuentes, límites y pendientes
+
+Los archivos iniciales `backend/src/backend/data/uton_guides.json` corresponden a **Guion Ecoturístico UTON 2024** y **Guion turístico zona norte**, extraídos con su paginación. Sus contradicciones no se resuelven silenciosamente. Los datos de actividad volcánica, acceso, clima y salud son temporales y se remiten al guía.
+
+La carga actual es una herramienta de demostración temporal. Antes de usarla por visitantes, UTON debe confirmar las fuentes/versiones autorizadas, revisar las fichas nuevas y definir un flujo autenticado con versionado. La presentación del reto califica operación local, citas, abstención, claridad, actualización, desempeño y documentación; el hardware y el protocolo formal de aprobación siguen pendientes de confirmación.

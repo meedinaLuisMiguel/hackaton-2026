@@ -14,10 +14,11 @@ import {
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { SAMPLE_SPECIES_PHOTOS, type SamplePhoto } from '../data/offlineData'
 import { ApiError, postVision } from '../services/api'
+import { speciesText, translateElevationZone, tx, type Language } from '../i18n'
 import type { Especie, VisionResponse } from '../types/paramo'
 
 interface VisionLensProps {
-  altitude: number
+  language: Language
   especies: Especie[]
   onSpeciesIdentified: (speciesName: string | null) => void
   onAskKumanday: (promptText: string, speciesContext?: string) => void
@@ -29,11 +30,33 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024
 const MIN_IMAGE_DIM = 32
 const MAX_CLIENT_DIM = 512
 
-async function encodeElementToJpegBase64(img: HTMLImageElement): Promise<string> {
+const ENGLISH_VISION_TEXT: Record<string, string> = {
+  'Identificación sin confirmar': 'Unconfirmed identification',
+  'Sin coincidencia en el catálogo PNN Los Nevados': 'No match in the Los Nevados catalog',
+  'Objeto o elemento fuera del catálogo de especies del parque': 'Object or item outside the park species catalog',
+  'No pertenece al ecosistema del parque': 'Outside the park ecosystem',
+  'Elemento identificado; fuera del catálogo de especies': 'Identified item; outside the species catalog',
+  'Resultado no verificable': 'Unverified result',
+  'Observación general sin identificación de especie': 'General observation; no species identified',
+  'Entorno de alta montaña': 'High-mountain environment',
+  'Ecosistema PNN Los Nevados': 'Los Nevados National Natural Park ecosystem',
+  'La imagen se reconoce fuera del catálogo de flora y fauna del PNN Los Nevados.': 'The image is outside the Los Nevados National Natural Park flora and fauna catalog.',
+  'Kumanday puede reconocer elementos de uso cotidiano, aunque su catálogo se centra en la biodiversidad del parque.': 'Kumanday can recognize everyday objects, although its catalog focuses on the park’s biodiversity.',
+  'Puedo ayudarte con objetos cotidianos; mi especialidad es la biodiversidad y las rutas del PNN Los Nevados.': 'I can help with everyday objects; my specialty is the biodiversity and trails of Los Nevados National Natural Park.',
+  'El modelo no relacionó la observación con una especie validada del catálogo local.': 'The model could not match the observation to a verified species in the local catalog.',
+  'No uses esta respuesta como identificación. Consulta las fichas verificadas del parque.': 'Do not use this as a confirmed identification. Check the park’s verified species records.',
+  'Paisaje de alta montaña, páramo y ecosistema volcánico.': 'A high-mountain landscape with páramo and volcanic ecosystems.',
+  'Permanece en el sendero demarcado y no recolectes material natural.': 'Stay on marked trails and do not collect natural materials.',
+  'No fue posible validar una especie nativa en el catálogo local.': 'A native species could not be verified in the local catalog.',
+  'Consulta el catálogo verificado o vuelve a tomar la fotografía.': 'Check the verified catalog or take another photo.',
+  'No se obtuvo una identificación verificable.': 'No verifiable identification was obtained.',
+}
+
+async function encodeElementToJpegBase64(img: HTMLImageElement, language: Language): Promise<string> {
   const width = img.naturalWidth
   const height = img.naturalHeight
   if (width < MIN_IMAGE_DIM || height < MIN_IMAGE_DIM) {
-    throw new Error('La imagen es demasiado pequeña (mínimo 32x32 píxeles).')
+    throw new Error(tx(language, 'La imagen es demasiado pequeña (mínimo 32x32 píxeles).', 'The image is too small (minimum 32×32 pixels).'))
   }
   const scale = Math.min(1, MAX_CLIENT_DIM / Math.max(width, height))
   const targetW = Math.max(1, Math.round(width * scale))
@@ -42,44 +65,64 @@ async function encodeElementToJpegBase64(img: HTMLImageElement): Promise<string>
   canvas.width = targetW
   canvas.height = targetH
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('No se pudo inicializar el lienzo de imagen.')
+  if (!ctx) throw new Error(tx(language, 'No se pudo inicializar el lienzo de imagen.', 'Could not initialize the image canvas.'))
   ctx.drawImage(img, 0, 0, targetW, targetH)
   return canvas.toDataURL('image/jpeg', 0.82)
 }
 
-async function loadImageBase64FromUrl(url: string): Promise<string> {
+async function loadImageBase64FromUrl(url: string, language: Language): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = async () => {
       try {
-        resolve(await encodeElementToJpegBase64(img))
+        resolve(await encodeElementToJpegBase64(img, language))
       } catch (err) {
         reject(err)
       }
     }
-    img.onerror = () => reject(new Error('No se pudo decodificar la imagen seleccionada.'))
+    img.onerror = () => reject(new Error(tx(language, 'No se pudo decodificar la imagen seleccionada.', 'Could not decode the selected image.')))
     img.src = url
   })
 }
 
-async function loadImageBase64FromFile(file: File): Promise<string> {
+async function loadBundledSampleBase64(url: string, language: Language): Promise<string> {
+  const response = await fetch(url, { cache: 'force-cache' })
+  if (!response.ok) {
+    throw new Error(tx(language, 'No se pudo cargar la muestra local.', 'Could not load the local sample.'))
+  }
+  const blob = await response.blob()
+  if (!ALLOWED_MIME_TYPES.has(blob.type.toLowerCase())) {
+    throw new Error(tx(language, 'La muestra local tiene un formato no permitido.', 'The local sample has an unsupported format.'))
+  }
+  if (blob.size > MAX_FILE_BYTES) {
+    throw new Error(tx(language, 'La muestra supera el límite máximo de 8 MiB.', 'The sample exceeds the 8 MiB limit.'))
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(new Error(tx(language, 'No se pudo leer la muestra local.', 'Could not read the local sample.')))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function loadImageBase64FromFile(file: File, language: Language): Promise<string> {
   const validMime = ALLOWED_MIME_TYPES.has(file.type.toLowerCase())
   const validExt = ALLOWED_EXT_REGEX.test(file.name)
   if (!validMime || !validExt) {
-    throw new Error('Formato no permitido. Sube únicamente imágenes JPG, PNG o WebP.')
+    throw new Error(tx(language, 'Formato no permitido. Sube únicamente imágenes JPG, PNG o WebP.', 'Unsupported format. Upload a JPG, PNG, or WebP image.'))
   }
   if (file.size === 0) {
-    throw new Error('El archivo seleccionado está vacío.')
+    throw new Error(tx(language, 'El archivo seleccionado está vacío.', 'The selected file is empty.'))
   }
   if (file.size > MAX_FILE_BYTES) {
-    throw new Error('La imagen supera el límite máximo permitido de 10 MB.')
+    throw new Error(tx(language, 'La imagen supera el límite máximo permitido de 8 MiB.', 'The image exceeds the 8 MiB limit.'))
   }
 
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(new Error('No se pudo leer el archivo desde el dispositivo.'))
+    reader.onerror = () => reject(new Error(tx(language, 'No se pudo leer el archivo desde el dispositivo.', 'Could not read the file from this device.')))
     reader.readAsDataURL(file)
   })
 
@@ -87,19 +130,19 @@ async function loadImageBase64FromFile(file: File): Promise<string> {
     const img = new Image()
     img.onload = async () => {
       try {
-        resolve(await encodeElementToJpegBase64(img))
+        resolve(await encodeElementToJpegBase64(img, language))
       } catch (err) {
         reject(err)
       }
     }
     img.onerror = () =>
-      reject(new Error('El archivo no contiene una imagen válida (JPG, PNG o WebP).'))
+      reject(new Error(tx(language, 'El archivo no contiene una imagen válida (JPG, PNG o WebP).', 'The file does not contain a valid image (JPG, PNG, or WebP).')))
     img.src = dataUrl
   })
 }
 
 export function VisionLens({
-  altitude,
+  language,
   especies,
   onSpeciesIdentified,
   onAskKumanday,
@@ -153,8 +196,8 @@ export function VisionLens({
     try {
       const response = await postVision({
         image_base64: imageBase64,
-        altitud_m: altitude,
         hint: hint ? `sample:${hint}` : undefined,
+        language,
       })
       setResult(response)
       onSpeciesIdentified(response.en_pnnn ? response.nombre_comun : null)
@@ -162,7 +205,7 @@ export function VisionLens({
       const msg =
         err instanceof ApiError
           ? err.message
-          : 'No se pudo procesar la fotografía. Verifica que sea JPG, PNG o WebP.'
+          : tx(language, 'No se pudo procesar la fotografía. Verifica que sea JPG, PNG o WebP.', 'Could not process the photo. Check that it is JPG, PNG, or WebP.')
       setErrorMsg(msg)
       setResult(null)
       onSpeciesIdentified(null)
@@ -178,12 +221,12 @@ export function VisionLens({
     setLoading(true)
     updatePreview(sample.src, sample.label, sample.id, false)
     try {
-      const b64 = await loadImageBase64FromUrl(sample.src)
+      const b64 = await loadBundledSampleBase64(sample.src, language)
       inFlightRef.current = false
       setLoading(false)
       await runVisionAnalysis(b64, sample.id)
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'No se pudo cargar la foto de prueba.')
+      setErrorMsg(err instanceof Error ? err.message : tx(language, 'No se pudo cargar la foto de prueba.', 'Could not load the sample photo.'))
       setLoading(false)
       inFlightRef.current = false
     }
@@ -195,7 +238,7 @@ export function VisionLens({
     setLoading(true)
     setErrorMsg(null)
     try {
-      const b64 = await loadImageBase64FromFile(file)
+      const b64 = await loadImageBase64FromFile(file, language)
       const objUrl = URL.createObjectURL(file)
       updatePreview(objUrl, file.name, undefined, true)
       inFlightRef.current = false
@@ -205,7 +248,7 @@ export function VisionLens({
       setErrorMsg(
         err instanceof Error
           ? err.message
-          : 'Archivo inválido. Solo se aceptan imágenes JPG, PNG o WebP.',
+          : tx(language, 'Archivo inválido. Solo se aceptan imágenes JPG, PNG o WebP.', 'Invalid file. Only JPG, PNG, or WebP images are supported.'),
       )
       setLoading(false)
       inFlightRef.current = false
@@ -221,12 +264,12 @@ export function VisionLens({
 
   function openCamera() {
     if (!window.isSecureContext) {
-      setErrorMsg('La cámara requiere una conexión segura (HTTPS) o abrir la app desde localhost. Prueba con “Elegir imagen” en este dispositivo.')
+      setErrorMsg(tx(language, 'La cámara requiere una conexión segura (HTTPS) o abrir la app desde localhost. Prueba con “Elegir imagen” en este dispositivo.', 'Camera access requires a secure connection (HTTPS) or localhost. Try “Choose image” on this device.'))
       return
     }
     setErrorMsg(null)
     if (!cameraInputRef.current) {
-      setErrorMsg('No se pudo abrir la cámara. Revisa los permisos del navegador o usa “Elegir imagen”.')
+      setErrorMsg(tx(language, 'No se pudo abrir la cámara. Revisa los permisos del navegador o usa “Elegir imagen”.', 'Could not open the camera. Check browser permissions or use “Choose image”.'))
       return
     }
     cameraInputRef.current?.click()
@@ -244,19 +287,46 @@ export function VisionLens({
   async function handleReanalyzeCurrent() {
     if (inFlightRef.current) return
     try {
-      const b64 = cachedBase64 ?? (await loadImageBase64FromUrl(previewUrl))
+      const b64 = cachedBase64 ?? (await loadImageBase64FromUrl(previewUrl, language))
       await runVisionAnalysis(b64, activeHint)
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'No se pudo re-analizar la imagen actual.')
+      setErrorMsg(err instanceof Error ? err.message : tx(language, 'No se pudo re-analizar la imagen actual.', 'Could not re-analyze the current image.'))
     }
   }
 
   const filteredSpecies = especies.filter(
     (sp) => catalogFilter === 'Todas' || sp.tipo === catalogFilter,
   )
+  const sampleName = (name: string) => {
+    const sample = SAMPLE_SPECIES_PHOTOS.find((item) => item.label === name)
+    return sample ? speciesText(language, sample.id, 'name', name) : name
+  }
+  const resultSpecies = result
+    ? especies.find((species) => species.nombre_cientifico === result.nombre_cientifico)
+    : undefined
+  const englishVisionText = (value: string | undefined) => (
+    value && language === 'en' ? ENGLISH_VISION_TEXT[value] ?? value : value
+  )
+  const resultStatus = result && language === 'en'
+    ? (resultSpecies
+      ? speciesText(language, resultSpecies.id, 'status', result.estado)
+      : ({
+        'No pertenece al ecosistema del parque': 'Outside the park ecosystem',
+        'Elemento identificado; fuera del catálogo de especies': 'Identified object; not a catalogued species',
+        'Resultado no verificable': 'Unverified result',
+        'Observación general sin identificación de especie': 'General observation; no species identified',
+        'Ollama multimodal offline': 'Ollama multimodal offline',
+      }[result.estado] ?? englishVisionText(result.estado)))
+    : result?.estado
+  const resultEcology = result && language === 'en' && resultSpecies
+    ? speciesText(language, resultSpecies.id, 'ecology', result.rol_ecologico)
+    : result?.rol_ecologico
+  const resultConservation = result && language === 'en' && resultSpecies
+    ? speciesText(language, resultSpecies.id, 'conservation', result.alerta_conservacion)
+    : englishVisionText(result?.alerta_conservacion)
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Lente de Páramo - Visión IA">
+    <section className="flex flex-col gap-4" aria-label={tx(language, 'Lente de Páramo - Visión IA', 'Páramo AI Lens')}>
       <article
         onDragOver={(e) => {
           e.preventDefault()
@@ -272,7 +342,7 @@ export function VisionLens({
         <div className="relative h-56 w-full bg-mountain-ink overflow-hidden">
           <img
             src={previewUrl}
-            alt={`Vista de especie: ${selectedLabel}`}
+            alt={`${tx(language, 'Vista de especie', 'Species preview')}: ${sampleName(selectedLabel)}`}
             className="h-full w-full object-cover"
           />
           <div
@@ -287,7 +357,7 @@ export function VisionLens({
               <span className="h-5 w-5 rounded-bl-sm border-b-2 border-l-2 border-white/90" />
               <span className="inline-flex items-center gap-1.5 rounded-full bg-mountain-ink/80 px-3 py-1 font-mono text-xs text-white backdrop-blur-sm">
                 <ScanLine className="h-3.5 w-3.5 text-moss-surface" />
-                <span>{loading ? 'Kumanday analizando...' : 'Lente Kumanday • JPG/PNG/WebP'}</span>
+                <span>{loading ? tx(language, 'Kumanday analizando…', 'Kumanday is analyzing…') : tx(language, 'Lente Kumanday • JPG/PNG/WebP', 'Kumanday Lens • JPG/PNG/WebP')}</span>
               </span>
               <span className="h-5 w-5 rounded-br-sm border-b-2 border-r-2 border-white/90" />
             </div>
@@ -298,14 +368,11 @@ export function VisionLens({
         <div className="p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-base font-bold text-mountain-ink">Lente de Páramo (Visión IA)</h2>
+              <h2 className="text-base font-bold text-mountain-ink">{tx(language, 'Lente de Páramo (Visión IA)', 'Páramo Lens (AI vision)')}</h2>
               <p className="text-xs text-mountain-muted">
-                Reconoce objetos y especies • JPG, PNG o WebP
+                {tx(language, 'Reconoce objetos y especies • JPG, PNG o WebP', 'Recognizes objects and species • JPG, PNG, or WebP')}
               </p>
             </div>
-            <span className="font-mono text-xs font-semibold text-paramo-earth tabular-nums">
-              {altitude.toLocaleString('es-CO')} m
-            </span>
           </div>
 
           <input
@@ -332,7 +399,7 @@ export function VisionLens({
               className="min-h-[48px] rounded-full bg-frailejon px-3.5 py-2 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 hover:bg-frailejon-deep disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <Camera className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Tomar foto</span>
+              <span>{tx(language, 'Tomar foto', 'Take photo')}</span>
             </button>
 
             <button
@@ -342,17 +409,17 @@ export function VisionLens({
               className="min-h-[48px] rounded-full border border-mountain-border bg-mist px-3.5 py-2 text-xs font-semibold text-mountain-ink inline-flex items-center justify-center gap-1.5 hover:bg-moss-container/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <ImageIcon className="h-4 w-4 shrink-0 text-frailejon" aria-hidden="true" />
-              <span>Elegir imagen</span>
+              <span>{tx(language, 'Elegir imagen', 'Choose image')}</span>
             </button>
           </div>
           {previewUrl.startsWith('blob:') && (
-            <button type="button" onClick={handleReanalyzeCurrent} disabled={loading} className="self-start text-xs font-semibold text-frailejon underline underline-offset-2 disabled:opacity-50">Volver a analizar esta foto</button>
+            <button type="button" onClick={handleReanalyzeCurrent} disabled={loading} className="self-start text-xs font-semibold text-frailejon underline underline-offset-2 disabled:opacity-50">{tx(language, 'Volver a analizar esta foto', 'Re-analyze this photo')}</button>
           )}
 
           {/* Quick Test Samples */}
           <div className="flex flex-col gap-2 pt-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-paramo-earth">
-              O explora una muestra
+              {tx(language, 'O explora una muestra', 'Or try a sample')}
             </span>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {SAMPLE_SPECIES_PHOTOS.map((sample) => (
@@ -369,12 +436,12 @@ export function VisionLens({
                 >
                   <img
                     src={sample.src}
-                    alt={sample.label}
+                    alt={sampleName(sample.label)}
                     className="h-9 w-9 shrink-0 rounded-lg object-cover"
                   />
                   <div className="min-w-0">
                     <div className="truncate text-xs font-bold text-mountain-ink">
-                      {sample.label}
+                      {sampleName(sample.label)}
                     </div>
                     <div className="truncate text-[10px] italic text-mountain-muted">
                       {sample.subtitle}
@@ -395,7 +462,7 @@ export function VisionLens({
         >
           <div className="flex items-center gap-2 text-xs font-semibold text-frailejon">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            <span>Kumanday está analizando la captura…</span>
+            <span>{tx(language, 'Kumanday está analizando la captura…', 'Kumanday is analyzing the image…')}</span>
           </div>
           <div className="h-4 w-2/3 rounded bg-mist" />
           <div className="h-3 w-full rounded bg-mist" />
@@ -423,10 +490,10 @@ export function VisionLens({
           <div className="flex items-start justify-between gap-2">
             <div>
               <h3 className="text-lg font-bold text-mountain-ink leading-snug">
-                {result.nombre_comun}
+                {resultSpecies ? speciesText(language, resultSpecies.id, 'name', result.nombre_comun) : englishVisionText(result.nombre_comun)}
               </h3>
               <p className="text-xs italic font-medium text-mountain-muted">
-                {result.nombre_cientifico}
+                {englishVisionText(result.nombre_cientifico)}
               </p>
             </div>
             <span
@@ -436,7 +503,7 @@ export function VisionLens({
                   : 'bg-amber-surface text-on-amber-surface'
               }`}
             >
-              {result.tipo} • {result.confianza}
+              {language === 'en' ? ({ Flora: 'Flora', Fauna: 'Fauna', Entorno: 'Environment', Objeto: 'Object', 'Fuera de Ecosistema': 'Outside ecosystem', 'Sin Confirmación': 'Unconfirmed' }[result.tipo] ?? result.tipo) : result.tipo} • {language === 'en' ? ({ 'Sin confirmación': 'Unconfirmed', 'Catálogo Offline Verificado': 'Verified offline catalog', 'Alta': 'High', 'Media': 'Medium', 'Baja': 'Low' }[result.confianza] ?? result.confianza) : result.confianza}
             </span>
           </div>
 
@@ -452,50 +519,54 @@ export function VisionLens({
             ) : (
               <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
             )}
-            <span>{result.estado}</span>
+            <span>{resultStatus}</span>
           </div>
 
-          <p className="text-sm leading-relaxed text-mountain-ink">{result.descripcion_ia}</p>
+          <p className="text-sm leading-relaxed text-mountain-ink">{englishVisionText(result.descripcion_ia)}</p>
 
           <p className="text-xs leading-relaxed text-mountain-muted">
-            {result.tipo === 'Objeto' ? result.rol_ecologico : <><strong className="font-semibold text-mountain-ink">Contexto ecológico:</strong>{' '}{result.rol_ecologico}</>}
+          {result.tipo === 'Objeto' ? englishVisionText(resultEcology) : <><strong className="font-semibold text-mountain-ink">{tx(language, 'Contexto ecológico:', 'Ecological context:')}</strong>{' '}{englishVisionText(resultEcology)}</>}
           </p>
 
-          {result.alerta_conservacion && <div
+          {resultConservation && <div
             role="status"
             className="rounded-xl border border-life-alert/30 bg-amber-surface p-3 flex items-start gap-2.5"
           >
             <AlertTriangle className="h-4 w-4 shrink-0 text-life-alert mt-0.5" aria-hidden="true" />
             <p className="text-xs font-semibold leading-snug text-on-amber-surface">
-              {result.alerta_conservacion}
+              {resultConservation}
             </p>
           </div>}
 
           {result.enfoque_notice && (
-            <p className="rounded-xl border border-frailejon/20 bg-moss-surface/60 px-3 py-2 text-xs leading-relaxed text-frailejon-deep">{result.enfoque_notice}</p>
+            <p className="rounded-xl border border-frailejon/20 bg-moss-surface/60 px-3 py-2 text-xs leading-relaxed text-frailejon-deep">{englishVisionText(result.enfoque_notice)}</p>
           )}
 
           <div className="flex items-center justify-between gap-2 pt-1 border-t border-mountain-border/50">
             <span className="font-mono text-[11px] text-mountain-muted">
-              {result.fallback_used ? 'Ficha local' : `IA local · ${result.model}`}
+              {result.fallback_used ? tx(language, 'Ficha local', 'Local record') : `${tx(language, 'IA local', 'Local AI')} · ${result.model}`}
             </span>
             <button
               type="button"
               onClick={() =>
                 result.en_pnnn
                   ? onAskKumanday(
-                      `Explícame el rol ecológico y cómo proteger a ${result.nombre_comun} (${result.nombre_cientifico}).`,
+                      language === 'es'
+                        ? `Explícame el rol ecológico y cómo proteger a ${result.nombre_comun} (${result.nombre_cientifico}).`
+                        : `Explain the ecological role of ${result.nombre_comun} (${result.nombre_cientifico}) and how to protect it.`,
                       result.nombre_comun,
                     )
                   : onAskKumanday(
-                      `¿Qué fauna y flora nativa puedo encontrar a ${altitude.toLocaleString('es-CO')} m s.n.m. en el PNN Los Nevados?`,
+                      language === 'es'
+                        ? '¿Qué fauna y flora nativa puedo encontrar en el PNN Los Nevados?'
+                        : 'What native flora and fauna can I find in Los Nevados National Natural Park?',
                     )
               }
               className="min-h-[44px] rounded-full bg-moss-container px-3.5 text-xs font-semibold text-frailejon-deep inline-flex items-center gap-1.5 hover:bg-moss-surface cursor-pointer"
             >
               <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
               <span>
-                {result.en_pnnn ? 'Profundizar con Kumanday' : 'Ver especies del parque'}
+                {result.en_pnnn ? tx(language, 'Profundizar con Kumanday', 'Learn more with Kumanday') : tx(language, 'Ver especies del parque', 'View park species')}
               </span>
             </button>
           </div>
@@ -514,10 +585,10 @@ export function VisionLens({
             <BookOpen className="h-4 w-4 text-frailejon" aria-hidden="true" />
             <div>
               <h3 className="text-sm font-bold text-mountain-ink">
-                Catálogo Verificado ({especies.length} especies)
+                {tx(language, `Catálogo verificado (${especies.length} especies)`, `Verified catalog (${especies.length} species)`)}
               </h3>
               <p className="text-[11px] text-mountain-muted">
-                Flora y fauna nativa incluida en el dispositivo
+                {tx(language, 'Flora y fauna nativa incluida en el dispositivo', 'Native flora and fauna available on this device')}
               </p>
             </div>
           </div>
@@ -542,7 +613,7 @@ export function VisionLens({
                       : 'border border-mountain-border bg-mist text-mountain-ink'
                   }`}
                 >
-                  {tab}
+                  {tab === 'Todas' ? tx(language, 'Todas', 'All') : tab}
                 </button>
               ))}
             </div>
@@ -555,7 +626,7 @@ export function VisionLens({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="text-xs font-bold text-mountain-ink">{sp.nombre_comun}</h4>
+                      <h4 className="text-xs font-bold text-mountain-ink">{speciesText(language, sp.id, 'name', sp.nombre_comun)}</h4>
                       <p className="text-[11px] italic text-mountain-muted">
                         {sp.nombre_cientifico}
                       </p>
@@ -564,22 +635,24 @@ export function VisionLens({
                       {sp.tipo}
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed text-mountain-muted">{sp.rol_ecologico}</p>
+                  <p className="text-xs leading-relaxed text-mountain-muted">{speciesText(language, sp.id, 'ecology', sp.rol_ecologico)}</p>
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <span className="font-mono text-[10px] text-paramo-earth">
-                      {sp.pisos.join(' • ')}
+                      {sp.pisos.map((zone) => translateElevationZone(language, zone)).join(' • ')}
                     </span>
                     <button
                       type="button"
                       onClick={() =>
                         onAskKumanday(
-                          `Cuéntame más sobre ${sp.nombre_comun} (${sp.nombre_cientifico}) y dónde habita.`,
+                          language === 'es'
+                            ? `Cuéntame más sobre ${sp.nombre_comun} (${sp.nombre_cientifico}) y dónde habita.`
+                            : `Tell me more about ${sp.nombre_comun} (${sp.nombre_cientifico}) and its habitat.`,
                           sp.nombre_comun,
                         )
                       }
                       className="min-h-[36px] rounded-full bg-white border border-frailejon/30 px-2.5 text-[11px] font-semibold text-frailejon hover:bg-moss-surface/60 cursor-pointer"
                     >
-                      Consultar
+                      {tx(language, 'Consultar', 'Ask Kumanday')}
                     </button>
                   </div>
                 </article>

@@ -1,19 +1,21 @@
-import { ArrowUpToLine, Compass, MessageSquare, ScanLine } from 'lucide-react'
+import { ArrowUpToLine, MapPinned, MessageSquare, ScanLine } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { tx, type Language } from '../i18n'
 import type { AppTab } from '../types/paramo'
 
 interface NavbarProps {
   activeTab: AppTab
+  language: Language
   onSelectTab: (tab: AppTab) => void
 }
 
-const NAV_ITEMS: Array<{ id: AppTab; label: string; Icon: typeof Compass }> = [
-  { id: 'rutas', label: 'Rutas & GPS', Icon: Compass },
-  { id: 'vision', label: 'Lente IA', Icon: ScanLine },
-  { id: 'chat', label: 'Kumanday IA', Icon: MessageSquare },
+const NAV_ITEMS: Array<{ id: AppTab; label: { es: string; en: string }; Icon: typeof MapPinned }> = [
+  { id: 'estaciones', label: { es: 'Estaciones', en: 'Stations' }, Icon: MapPinned },
+  { id: 'vision', label: { es: 'Lente IA', en: 'AI Lens' }, Icon: ScanLine },
+  { id: 'chat', label: { es: 'Kumanday IA', en: 'Kumanday AI' }, Icon: MessageSquare },
 ]
 
-export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
+export function Navbar({ activeTab, language, onSelectTab }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -52,13 +54,13 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
 
   return (
     <>
-    {scrolled && <div role="group" className="scroll-controls fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-30 flex flex-col gap-1.5 md:bottom-24" aria-label="Controles de desplazamiento">
-      <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Subir al inicio" className="grid h-10 w-10 place-items-center rounded-full border border-mountain-border bg-white/95 text-frailejon shadow-lg backdrop-blur">
+    {scrolled && <div role="group" className="scroll-controls fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] right-4 z-30 flex flex-col gap-1.5 md:bottom-24" aria-label={tx(language, 'Controles de desplazamiento', 'Scroll controls')}>
+      <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label={tx(language, 'Subir al inicio', 'Back to top')} className="grid h-10 w-10 place-items-center rounded-full border border-mountain-border bg-white/95 text-frailejon shadow-lg backdrop-blur">
         <ArrowUpToLine size={17} aria-hidden="true" />
       </button>
     </div>}
     <nav
-      aria-label="Navegación principal"
+      aria-label={tx(language, 'Navegación principal', 'Main navigation')}
       className="fixed bottom-[max(.75rem,env(safe-area-inset-bottom))] left-1/2 z-30 mx-auto w-[calc(100%-1.5rem)] max-w-[520px] -translate-x-1/2 rounded-[1.35rem] border border-white/70 bg-white/90 p-1.5 shadow-[0_12px_40px_-12px_rgba(23,49,36,.35)] backdrop-blur-xl md:bottom-6"
     >
       <div className="grid grid-cols-3 gap-1">
@@ -77,7 +79,7 @@ export function Navbar({ activeTab, onSelectTab }: NavbarProps) {
               }`}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
-              <span className="text-[10px] font-semibold tracking-wide sm:text-[11px]">{label}</span>
+              <span className="text-[10px] font-semibold tracking-wide sm:text-[11px]">{label[language]}</span>
             </button>
           )
         })}
