@@ -21,6 +21,7 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: gemma3:4b
       OLLAMA_VISION_MODEL: gemma3:4b
+      SPEECH_MODEL_PATH: /opt/app/models/ggml-base.bin
     networks: [internal, public]
     depends_on:
       ollama:
@@ -43,6 +44,20 @@ services:
     restart: unless-stopped
     ports:
       - "5173:80"
+    networks: [public]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend-https:
+    profiles: ["https"]
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5174:443"
+    volumes:
+      - ./frontend/nginx.https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/certs:/etc/nginx/certs:ro
     networks: [public]
     depends_on:
       backend:

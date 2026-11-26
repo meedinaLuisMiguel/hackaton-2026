@@ -15,10 +15,11 @@
    - Citas de los dos guiones UTON con página en cada respuesta respaldada.
    - Carga local de fuentes PDF, TXT, CSV y DOCX; el contenido cargado reemplaza las fuentes iniciales durante la sesión y no se persiste como contenido aprobado.
    - Selector de español/inglés; si la fuente validada está únicamente en español, el agente conserva el idioma original para evitar traducciones no verificadas.
-   - Solicitud explícita de coordenadas GPS desde SOS, mostrando precisión estimada; la app no transmite alertas. No hay radar ni simulador de altitud en la interfaz.
+   - Solicitud explícita de ubicación del dispositivo desde SOS, mostrando coordenadas y precisión estimada. En teléfonos con GNSS puede funcionar sin Wi‑Fi al aire libre; en un PC puede depender del Wi‑Fi o de un receptor GPS externo. La app no transmite alertas. No hay radar ni simulador de altitud en la interfaz.
    - Bitácora offline de observaciones en ruta (`localStorage`) como herramienta secundaria.
    - Lente de Páramo (visión desde cámara/archivo y 4 muestras locales; puede describir objetos cotidianos y aclara que su especialidad es el PNN Los Nevados)
    - Agente Kumanday (chat con prioridad UTON y citas visibles, respuestas generales de naturaleza marcadas como no validadas, abstención y derivación a guía autorizado).
+   - Chat de voz por turnos: grabación de hasta 30 segundos, conversión a WAV en navegador y transcripción mediante Whisper.cpp local. El audio llega al backend local, se procesa en memoria y no se guarda ni se envía a terceros; el texto sigue el mismo `/api/chat`, con evidencia y salvaguardas. La respuesta escrita permanece visible y solo se lee con una voz local. Micrófono móvil requiere HTTPS confiable.
    - Módulo *Protegiendo la Vida* informativo de soroche, hipotermia y riesgo volcánico + directorio de emergencias de Caldas. No diagnostica ni simula envío satelital.
 4. **Entorno de ejecución:** Docker Compose como entorno principal + ejecución nativa en Windows (`uv` + `pnpm` + `ollama`).
 5. **Cero dependencias externas en runtime:** Sin Google Fonts, sin CDNs de Tailwind ni URLs remotas de imágenes; todos los íconos (`lucide-react`) e imágenes de prueba (`frontend/public/samples/`) están empaquetados localmente.
@@ -29,7 +30,7 @@
 
 ### Backend (`backend/`)
 - **Lenguaje y gestor:** Python `3.15` (`uv`)
-- **Framework y librerías:** `fastapi[standard]`, `uvicorn`, `httpx`, `pillow`, `pydantic-settings`, `python-multipart`
+- **Framework y librerías:** `fastapi[standard]`, `uvicorn`, `httpx`, `pillow`, `pydantic-settings`, `python-multipart`, `pywhispercpp` (voz local)
 - **Calidad y pruebas:** `ruff` (linting), `ty` (type checking), `pytest` + `pytest-asyncio` (pruebas con `httpx.ASGITransport`)
 - **Extracción documental:** `pymupdf` para texto y páginas PDF; TXT/CSV por biblioteca estándar; DOCX mediante XML estándar. Archivos escaneados sin capa de texto se rechazan.
 
@@ -111,6 +112,7 @@ hackaton-2026/
 - `GET /api/radar?altitud=<m>` — Calcula piso térmico, temperatura estimada, especies probables y riesgo de soroche.
 - `GET /api/protocolos` — Devuelve protocolos de vida (`soroche`, `hipotermia`, `volcanico`) y directorio de emergencias de Caldas.
 - `POST /api/chat` — Prioriza fragmentos UTON con fuente y página; si no hay evidencia pertinente, usa el catálogo local o permite una explicación general de naturaleza marcada como no validada por UTON. No atribuye al parque afirmaciones generales de presencia o abundancia. Se abstiene en consultas médicas, volcánicas, de acceso y actualidad; sin Ollama limita las respuestas a datos locales deterministas o extractos UTON.
+- `POST /api/voice/transcribe` — Acepta WAV PCM mono de 16 kHz, máximo 1 MiB y 30 segundos; transcribe con Whisper.cpp local y no persiste el audio. El texto se envía después por `/api/chat`.
 - `POST /api/vision` — Valida base64 e imágenes raster JPEG/PNG/WebP (hasta 8 MiB y mínimo 32×32), corrige orientación EXIF, redimensiona a máximo `512px` JPEG con Pillow, consulta a Ollama multimodal y valida especies contra el catálogo. También puede describir objetos fuera del catálogo sin presentarlos como especies del parque. Los hints locales se limitan a muestras de demostración; no inventar identificaciones de fotos del usuario si el modelo falla.
 
 ### Estrategia *Offline-First* en el Frontend
@@ -127,6 +129,7 @@ hackaton-2026/
 3. **Estética y ergonomía:** Mantener el diseño mobile-first, alto contraste en ambos temas y controles táctiles accesibles (objetivo mínimo de 44 px cuando aplique). La barra inferior fija, el compositor móvil y áreas seguras no deben cubrir contenido.
 4. **Cero regresiones:** Ejecutar las comprobaciones de calidad antes de cerrar cualquier cambio.
 5. **Autoridad de fuentes:** La carga de archivo es temporal y no convierte automáticamente una guía en fuente oficial. El personal autorizado debe revisar/validar versión, contenido y páginas antes de publicarla para visitantes.
+6. **Voz y privacidad:** No habilitar reconocimiento remoto ni guardar audio. Las preguntas habladas se transcriben con Whisper.cpp local y luego pasan por el mismo endpoint `/api/chat`, las mismas reglas de evidencia y las mismas salvaguardas que las preguntas escritas. El modelo `base` se instala explícitamente en uso nativo y se incluye durante el build de Docker; nunca se descarga en tiempo de ejecución. La lectura usa una voz instalada localmente y el chat escrito sigue disponible.
 
 ---
 
@@ -206,7 +209,7 @@ pnpm build
 - [x] Añadir carga de PDF/TXT/CSV/DOCX limitada a 8 MiB y temporal por sesión.
 - [x] Priorizar citas UTON; permitir explicaciones generales de naturaleza solo con aviso explícito y límites de presencia local; abstenerse ante actualidad, acceso o seguridad.
 - [x] Sustituir la falsa baliza SOS por información honesta y remisión al personal autorizado.
-- [x] Retirar el radar y simulador de altitud de la pantalla de estaciones; SOS solicita coordenadas GPS solo bajo acción y permiso explícitos, informa precisión estimada y permite copiar la ubicación.
+- [x] Retirar el radar y simulador de altitud de la pantalla de estaciones; SOS solicita la ubicación del dispositivo solo bajo acción y permiso explícitos, informa precisión estimada y permite copiar las coordenadas.
 - [ ] Confirmar con UTON la validez oficial de cifras, reglas, estación Brisas, nombres culturales y contenido de seguridad; los materiales entregados no resuelven todas las discrepancias.
 - [ ] Persistir y administrar fuentes aprobadas mediante un flujo exclusivo para personal autorizado, con versionado/auditoría.
 - [ ] Validar con el hardware asignado consumo, velocidad, idioma alternativo y operación totalmente desconectada.

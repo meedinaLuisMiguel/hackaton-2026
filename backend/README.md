@@ -1,6 +1,6 @@
 # Backend de Kumanday
 
-API FastAPI para el catálogo del PNN Los Nevados, el radar de altitud, los protocolos de seguridad y las consultas de chat/visión. El conocimiento verificado se carga desde `src/backend/data/pnnn_knowledge.json`. Las inferencias generativas se envían al servidor Ollama configurado; si Ollama no está disponible, la API conserva los endpoints y ofrece respuestas deterministas donde están implementadas.
+API FastAPI para el catálogo del PNN Los Nevados, el radar de altitud, los protocolos de seguridad y las consultas de chat/visión/voz. El conocimiento verificado se carga desde `src/backend/data/pnnn_knowledge.json`. Las inferencias generativas se envían al servidor Ollama configurado; la transcripción usa Whisper.cpp local y no requiere Ollama.
 
 La API no mide la conexión general a Internet: `/api/health` informa si puede comunicarse con Ollama y si el modelo configurado está instalado. `offline_ready` indica que las funciones locales de respaldo están disponibles.
 
@@ -8,14 +8,18 @@ La API no mide la conexión general a Internet: `/api/health` informa si puede c
 
 - Python `>=3.15`, según `pyproject.toml`.
 - `uv` para dependencias, servidor y tareas de calidad.
+- El modelo de voz Whisper.cpp `base` para transcripción local.
 - Ollama es opcional para los respaldos, pero necesario para respuestas generativas de chat y análisis real de imágenes.
 
 Desde esta carpeta, en una terminal:
 
 ```powershell
 uv sync
+uv run python -c "from pywhispercpp.utils import download_model; download_model('base', 'models')"
 uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+La descarga del modelo es un paso explícito de instalación y se realiza una sola vez. La API espera `models/ggml-base.bin` y no descarga modelos automáticamente en ejecución.
 
 Para el modelo local de demostración, en otra terminal:
 
@@ -36,6 +40,7 @@ La configuración usa variables de entorno o un archivo `.env` en el directorio 
 | `OLLAMA_MODEL` | `gemma3:4b` | Modelo utilizado por el chat. |
 | `OLLAMA_VISION_MODEL` | `gemma3:4b` | Modelo multimodal para imágenes. |
 | `OLLAMA_TIMEOUT_SECONDS` | `45` | Tiempo máximo de inferencia. |
+| `SPEECH_MODEL_PATH` | `models/ggml-base.bin` | Ruta local al modelo Whisper.cpp `base`. |
 | `CORS_ORIGINS` | `["*"]` | Orígenes permitidos por CORS; para restringirlos, proporciona una lista JSON, por ejemplo `["http://localhost:5173"]`. |
 
 El backend nativo usa el Ollama de este equipo. Docker Compose configura `OLLAMA_BASE_URL=http://ollama:11434` para el contenedor Ollama de la composición.
@@ -51,6 +56,7 @@ El backend nativo usa el Ollama de este equipo. Docker Compose configura `OLLAMA
 | `GET /api/radar?altitud=4150` | Piso térmico, especies probables, temperatura estimada y recomendación de seguridad para una altitud de 0 a 6000 m. |
 | `GET /api/protocolos` | Protocolos informativos y directorio local de emergencias. |
 | `POST /api/chat` | Prioriza fragmentos UTON con página; si no hay respaldo, permite respuestas del catálogo local o explicaciones generales de naturaleza con aviso explícito de que no están validadas por UTON. No infiere presencia local de especies. Se abstiene ante actualidad, acceso y seguridad. |
+| `POST /api/voice/transcribe` | Recibe WAV PCM mono de 16 kHz (máximo 1 MB / 30 s) y devuelve la transcripción con el modelo local; el audio solo vive en memoria. Luego el frontend envía ese texto a `/api/chat`. |
 | `POST /api/vision` | Descripción de imagen e identificación prudente contra el catálogo local; puede reconocer objetos cotidianos y los distingue de especies del parque. |
 
 Los contratos de entrada y salida se definen en `src/backend/schemas.py`. Los cuerpos de ejemplo se pueden consultar en Swagger (`/docs`). Para visión, el backend acepta JPEG, PNG y WebP, limita el archivo original a 8 MiB y exige dimensiones mínimas de 32×32 píxeles; aplica orientación EXIF y normaliza la imagen para Ollama. Los hints solo activan la ficha determinista si los bytes coinciden con una muestra local empaquetada; no pueden convertir una foto arbitraria en una identificación confirmada.
@@ -61,6 +67,7 @@ Los contratos de entrada y salida se definen en `src/backend/schemas.py`. Los cu
 - El chat usa primero fragmentos UTON con documento y página. Para temas de naturaleza sin evidencia UTON puede generar respuestas generales, marcadas como no validadas, sin afirmar presencia de especies o condiciones locales.
 - El catálogo local responde consultas generales de biodiversidad sin Ollama. Las respuestas generativas requieren el modelo; sin él, las preguntas no cubiertas por el catálogo o las fuentes UTON se abstienen.
 - La visión no inventa identificaciones científicas cuando no puede validar una especie. Puede describir objetos fuera del catálogo e indicar el enfoque de Kumanday.
+- La transcripción requiere un navegador con `getUserMedia`/`MediaRecorder`, permiso de micrófono y HTTPS (o localhost). El audio se valida, procesa en memoria y no se conserva.
 - La información médica y volcánica es orientativa y no sustituye los protocolos oficiales ni al personal del parque.
 
 ## Docker Compose
@@ -72,6 +79,8 @@ docker compose up --build
 ```
 
 Compose inyecta la URL de Ollama del contenedor y espera el healthcheck del backend antes de iniciar el frontend. La imagen del backend usa etapas de build/runtime y ejecuta Uvicorn como usuario sin privilegios. Para cambiar el modelo, ajusta `OLLAMA_MODEL` y `OLLAMA_VISION_MODEL` en `docker-compose.yml`.
+
+La imagen del backend descarga el modelo de voz `base` durante el build. Para usar micrófono desde un teléfono por la red Wi-Fi, crea un certificado de desarrollo confiable con mkcert y ejecuta `docker compose --profile https up --build`; los pasos completos están en el README de la raíz.
 
 ## Calidad
 

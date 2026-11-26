@@ -12,6 +12,10 @@ COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
+RUN mkdir -p /opt/app/models \
+    && /opt/app/.venv/bin/python -c "from pywhispercpp.utils import download_model; download_model('base', '/opt/app/models')" \
+    && test -s /opt/app/models/ggml-base.bin
+
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
@@ -29,9 +33,11 @@ WORKDIR /opt/app
 
 COPY --from=builder --chown=paramo:paramo /opt/app/.venv /opt/app/.venv
 COPY --from=builder --chown=paramo:paramo /opt/app/src /opt/app/src
+COPY --from=builder --chown=paramo:paramo /opt/app/models /opt/app/models
 
 ENV PATH="/opt/app/.venv/bin:$PATH" \
     PYTHONPATH="/opt/app/src" \
+    SPEECH_MODEL_PATH="/opt/app/models/ggml-base.bin" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 

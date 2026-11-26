@@ -110,7 +110,12 @@ function App() {
   const [chatLoading, setChatLoading] = useState(false)
   const [lastSpecies, setLastSpecies] = useState<string | null>(initialState?.lastSpecies ?? null)
   const sendingChatRef = useRef(false)
-  const msgSeqRef = useRef(1)
+  const msgSeqRef = useRef(
+    chatMessages.reduce((highest, message) => {
+      const sequence = Number(message.id.match(/^[ua]-(\d+)$/)?.[1] ?? 0)
+      return Math.max(highest, sequence)
+    }, 0) + 1,
+  )
 
   const [bitacora, setBitacora] = useState<BitacoraEntry[]>(() =>
     loadStoredArray<BitacoraEntry>(STORAGE_BITACORA, INITIAL_BITACORA),
@@ -431,20 +436,22 @@ function App() {
         </div>
 
         <div className={activeTab === 'chat' ? 'view-active' : 'view-inactive'} aria-hidden={activeTab !== 'chat'} inert={activeTab !== 'chat'}>
-          <RagChat
-            language={language}
-            messages={chatMessages}
-            loading={chatLoading}
-            lastSpecies={lastSpecies}
-            onSendMessage={(text) => void sendChatMessage(text)}
-            ollamaConnected={iaActive}
-            modelAvailable={health?.model_available ?? false}
-            configuredModel={health?.configured_model ?? 'gemma3:4b'}
-            onStartNewChat={handleStartNewChat}
-            onClearCache={handleClearCache}
-            onOpenSafety={() => setSafetyOpen(true)}
-            onOpenRutas={() => setActiveTab('estaciones')}
-          />
+          {activeTab === 'chat' && (
+            <RagChat
+              language={language}
+              messages={chatMessages}
+              loading={chatLoading}
+              lastSpecies={lastSpecies}
+              onSendMessage={(text) => void sendChatMessage(text)}
+              ollamaConnected={iaActive}
+              modelAvailable={health?.model_available ?? false}
+              configuredModel={health?.configured_model ?? 'gemma3:4b'}
+              onStartNewChat={handleStartNewChat}
+              onClearCache={handleClearCache}
+              onOpenSafety={() => setSafetyOpen(true)}
+              onOpenRutas={() => setActiveTab('estaciones')}
+            />
+          )}
         </div>
         </>
         )}

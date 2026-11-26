@@ -2,14 +2,19 @@ import {
   Compass,
   DatabaseZap,
   Leaf,
+  Mic,
+  MicOff,
   MessageSquarePlus,
   Send,
   ShieldAlert,
   Sparkles,
+  Volume2,
   Wrench,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { localizedSpeciesName, tx, type Language } from '../i18n'
+import { ApiError, postVoiceTranscription } from '../services/api'
+import { convertVoiceRecordingToWav, MAX_VOICE_DURATION_SECONDS } from '../services/voiceAudio'
 import type { UiChatMessage } from '../types/paramo'
 
 interface RagChatProps {
@@ -20,12 +25,28 @@ interface RagChatProps {
   ollamaConnected: boolean
   modelAvailable: boolean
   configuredModel: string
-  onSendMessage: (text: string) => void
+  onSendMessage: (text: string, fromVoice?: boolean) => void
   onStartNewChat: () => void
   onClearCache: () => boolean
   onOpenSafety: () => void
   onOpenRutas: () => void
 }
+
+type VoiceStatus = 'idle' | 'preparing' | 'listening' | 'transcribing' | 'speaking' | 'error'
+type VoiceError =
+  | 'unsupported'
+  | 'language-unavailable'
+  | 'install-failed'
+  | 'permission-denied'
+  | 'microphone-unavailable'
+  | 'no-speech'
+  | 'recognition-failed'
+  | 'invalid-audio'
+  | 'transcription-failed'
+  | 'model-unavailable'
+  | 'recording-too-long'
+  | 'no-local-voice'
+  | 'secure-context-required'
 
 const QUICK_CHIPS = {
   es: ['¿Cómo produce agua el frailejón?', 'Tengo dolor de cabeza a 4.200 m'],
@@ -76,6 +97,26 @@ export function RagChat({
   const chatThreadRef = useRef<HTMLDivElement | null>(null)
   const sendingRef = useRef(false)
   const sectionRef = useRef<HTMLElement | null>(null)
+  const discardVoiceInputRef = useRef(false)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const recordingTimerRef = useRef<number | null>(null)
+  const voiceAbortRef = useRef<AbortController | null>(null)
+  const voiceSessionRef = useRef(0)
+  const pendingVoiceReplyRef = useRef(false)
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const [voiceState, setVoiceState] = useState<{ status: VoiceStatus; language: Language }>({
+    status: 'idle',
+    language,
+  })
+  const [voiceError, setVoiceError] = useState<VoiceError | null>(null)
+  const voiceStatus = voiceState.status
+  const visibleVoiceStatus = voiceState.language === language ? voiceStatus : 'idle'
+  const updateVoiceStatus = useCallback(
+    (status: VoiceStatus) => setVoiceState({ status, language }),
+    [language],
+  )
 
   function scrollChatToLatest() {
     const chatSection = sectionRef.current
@@ -101,16 +142,355 @@ export function RagChat({
     })
   }
 
-  function sendPrompt(prompt: string) {
+  function sendPrompt(prompt: string, fromVoice = false) {
     if (!prompt.trim() || loading || sendingRef.current) return
     sendingRef.current = true
-    onSendMessage(prompt)
+    pendingVoiceReplyRef.current = fromVoice
+    onSendMessage(prompt, fromVoice)
     window.setTimeout(() => { sendingRef.current = false }, 500)
+  }
+
+  const speakReply = useCallback((text: string, responseLanguage: Language = language) => {
+    const speech = window.speechSynthesis
+    if (!speech) {
+      setVoiceError('no-local-voice')
+      updateVoiceStatus('error')
+      return
+    }
+
+    speech.cancel()
+    activeUtteranceRef.current = null
+    const languagePrefix = responseLanguage === 'es' ? 'es' : 'en'
+    const voice = speech.getVoices().find(
+      (candidate) => candidate.localService && candidate.lang.toLowerCase().startsWith(languagePrefix),
+    )
+    if (!voice) {
+      setVoiceError('no-local-voice')
+      updateVoiceStatus('error')
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.voice = voice
+    utterance.lang = voice.lang
+    activeUtteranceRef.current = utterance
+    utterance.onstart = () => {
+      if (activeUtteranceRef.current === utterance) updateVoiceStatus('speaking')
+    }
+    utterance.onend = () => {
+      if (activeUtteranceRef.current === utterance) {
+        activeUtteranceRef.current = null
+        updateVoiceStatus('idle')
+      }
+    }
+    utterance.onerror = () => {
+      if (activeUtteranceRef.current === utterance) {
+        activeUtteranceRef.current = null
+        setVoiceError('no-local-voice')
+        updateVoiceStatus('error')
+      }
+    }
+    speech.speak(utterance)
+  }, [language, updateVoiceStatus])
+
+  function stopSpeaking() {
+    window.speechSynthesis?.cancel()
+    activeUtteranceRef.current = null
+    if (voiceStatus === 'speaking') updateVoiceStatus('idle')
+  }
+
+  const stopVoiceResources = useCallback(() => {
+    if (recordingTimerRef.current !== null) {
+      window.clearTimeout(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+
+    const recorder = recorderRef.current
+    recorderRef.current = null
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null
+      recorder.onerror = null
+      recorder.stop()
+    }
+
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop())
+    mediaStreamRef.current = null
+    audioChunksRef.current = []
+    voiceAbortRef.current?.abort()
+    voiceAbortRef.current = null
+  }, [])
+
+  const cancelVoiceInput = useCallback(() => {
+    voiceSessionRef.current += 1
+    discardVoiceInputRef.current = true
+    stopVoiceResources()
+  }, [stopVoiceResources])
+
+  function stopVoiceRecording() {
+    const recorder = recorderRef.current
+    if (!recorder || recorder.state === 'inactive') return
+    if (recordingTimerRef.current !== null) {
+      window.clearTimeout(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    updateVoiceStatus('transcribing')
+    recorder.stop()
+  }
+
+  async function transcribeVoiceRecording(
+    recording: Blob,
+    session: number,
+    requestedLanguage: Language,
+  ) {
+    try {
+      const wav = await convertVoiceRecordingToWav(recording)
+      if (session !== voiceSessionRef.current) return
+      if (wav.size > 1_000_000) {
+        setVoiceError('recording-too-long')
+        updateVoiceStatus('error')
+        return
+      }
+
+      const controller = new AbortController()
+      voiceAbortRef.current = controller
+      const result = await postVoiceTranscription(wav, requestedLanguage, controller.signal)
+      if (session !== voiceSessionRef.current) return
+      const transcript = result.transcript.trim()
+      if (!transcript) {
+        setVoiceError('no-speech')
+        updateVoiceStatus('error')
+        return
+      }
+
+      setInput('')
+      updateVoiceStatus('idle')
+      sendPrompt(transcript, true)
+    } catch (error) {
+      if (session !== voiceSessionRef.current) return
+      setVoiceError(
+        error instanceof RangeError
+          ? 'recording-too-long'
+          : error instanceof ApiError && error.status === 413
+            ? 'recording-too-long'
+            : error instanceof ApiError && error.status === 503
+              ? 'model-unavailable'
+              : error instanceof ApiError && error.status === 422
+                ? 'invalid-audio'
+                : 'transcription-failed',
+      )
+      updateVoiceStatus('error')
+    } finally {
+      if (session === voiceSessionRef.current) voiceAbortRef.current = null
+    }
+  }
+
+  async function startVoiceInput() {
+    const voiceSession = ++voiceSessionRef.current
+    const requestedLanguage = language
+    if (!window.isSecureContext) {
+      setVoiceError('secure-context-required')
+      updateVoiceStatus('error')
+      return
+    }
+    if (
+      !navigator.mediaDevices?.getUserMedia
+      || typeof MediaRecorder === 'undefined'
+      || typeof AudioContext === 'undefined'
+      || typeof OfflineAudioContext === 'undefined'
+    ) {
+      setVoiceError('unsupported')
+      updateVoiceStatus('error')
+      return
+    }
+
+    updateVoiceStatus('preparing')
+    setVoiceError(null)
+    discardVoiceInputRef.current = false
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+      if (voiceSession !== voiceSessionRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+      mediaStreamRef.current = stream
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ].find((candidate) => MediaRecorder.isTypeSupported(candidate))
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      recorderRef.current = recorder
+      audioChunksRef.current = []
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
+      }
+      recorder.onerror = () => {
+        if (voiceSession !== voiceSessionRef.current) return
+        discardVoiceInputRef.current = true
+        stopVoiceResources()
+        setVoiceError('transcription-failed')
+        updateVoiceStatus('error')
+      }
+      recorder.onstop = () => {
+        const recording = new Blob(audioChunksRef.current, { type: recorder.mimeType })
+        audioChunksRef.current = []
+        recorderRef.current = null
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+        if (voiceSession !== voiceSessionRef.current) return
+        if (discardVoiceInputRef.current) {
+          discardVoiceInputRef.current = false
+          updateVoiceStatus('idle')
+          return
+        }
+        if (recording.size === 0) {
+          setVoiceError('no-speech')
+          updateVoiceStatus('error')
+          return
+        }
+        updateVoiceStatus('transcribing')
+        void transcribeVoiceRecording(recording, voiceSession, requestedLanguage)
+      }
+      inputRef.current?.blur()
+      recorder.start(250)
+      updateVoiceStatus('listening')
+      recordingTimerRef.current = window.setTimeout(
+        stopVoiceRecording,
+        MAX_VOICE_DURATION_SECONDS * 1000,
+      )
+    } catch (error) {
+      if (voiceSession !== voiceSessionRef.current) return
+      stopVoiceResources()
+      setVoiceError(
+        error instanceof DOMException && error.name === 'NotAllowedError'
+          ? 'permission-denied'
+          : error instanceof DOMException && ['NotFoundError', 'NotReadableError'].includes(error.name)
+            ? 'microphone-unavailable'
+            : 'transcription-failed',
+      )
+      updateVoiceStatus('error')
+    }
+  }
+
+  function handleVoiceButton() {
+    if (visibleVoiceStatus === 'listening') {
+      stopVoiceRecording()
+      return
+    }
+    if (loading || ['preparing', 'transcribing'].includes(visibleVoiceStatus)) return
+    window.speechSynthesis?.cancel()
+    activeUtteranceRef.current = null
+    void startVoiceInput()
+  }
+
+  function voiceStatusMessage(): string {
+    if (voiceStatus === 'preparing') {
+      return tx(
+        language,
+        'Solicitando el micrófono. Al detener, el audio se enviará solo al servidor local y no se guardará.',
+        'Requesting microphone access. When you stop, audio goes only to the local server and is not saved.',
+      )
+    }
+    if (voiceStatus === 'listening') {
+      return tx(
+        language,
+        `Grabando… Toca para transcribir. Máximo ${MAX_VOICE_DURATION_SECONDS} segundos.`,
+        `Recording… Tap to transcribe. Maximum ${MAX_VOICE_DURATION_SECONDS} seconds.`,
+      )
+    }
+    if (voiceStatus === 'transcribing') {
+      return tx(language, 'Transcribiendo en el servidor local… El audio no se conserva.', 'Transcribing on the local server… Audio is not retained.')
+    }
+    if (voiceStatus === 'speaking') {
+      return tx(language, 'Kumanday está leyendo su respuesta. El texto y las fuentes siguen visibles.', 'Kumanday is reading its reply. The text and sources remain visible.')
+    }
+    if (voiceStatus !== 'error' || !voiceError) return ''
+
+    const messages: Record<VoiceError, [string, string]> = {
+      unsupported: [
+        'Este navegador no permite grabación de audio compatible. Puedes seguir usando el chat escrito.',
+        'This browser does not support compatible audio recording. You can keep using text chat.',
+      ],
+      'language-unavailable': [
+        'Este dispositivo no tiene un paquete local para ese idioma. Instala el idioma en el navegador o continúa escribiendo.',
+        'This device has no local speech pack for that language. Install the language in your browser or continue typing.',
+      ],
+      'install-failed': [
+        'No se pudo instalar el paquete de voz local. Revisa la conexión y vuelve a intentarlo.',
+        'The local speech pack could not be installed. Check your connection and try again.',
+      ],
+      'permission-denied': [
+        'No se concedió permiso para usar el micrófono. Puedes continuar escribiendo.',
+        'Microphone permission was not granted. You can continue typing.',
+      ],
+      'microphone-unavailable': [
+        'No se encontró un micrófono disponible. Puedes continuar escribiendo.',
+        'No microphone was found. You can continue typing.',
+      ],
+      'no-speech': [
+        'No detecté voz. Toca el micrófono e inténtalo de nuevo.',
+        'No speech was detected. Tap the microphone and try again.',
+      ],
+      'invalid-audio': [
+        'No pude leer el audio grabado. Inténtalo de nuevo o escribe tu pregunta.',
+        'The recorded audio could not be read. Try again or type your question.',
+      ],
+      'transcription-failed': [
+        'Falló la transcripción local. Revisa que el servidor esté activo o escribe tu pregunta.',
+        'Local transcription failed. Check that the server is running or type your question.',
+      ],
+      'model-unavailable': [
+        'Falta instalar el modelo local de voz en el servidor. Consulta las instrucciones de configuración.',
+        'The local speech model is missing from the server. Check the setup instructions.',
+      ],
+      'recording-too-long': [
+        'La grabación supera el límite permitido. Inténtalo otra vez con una pregunta más corta.',
+        'The recording exceeds the allowed limit. Try again with a shorter question.',
+      ],
+      'recognition-failed': [
+        'Falló el reconocimiento local. Inténtalo de nuevo o escribe tu pregunta.',
+        'On-device speech recognition failed. Try again or type your question.',
+      ],
+      'no-local-voice': [
+        'No hay una voz instalada localmente para este idioma. La respuesta escrita sigue disponible.',
+        'No local voice is installed for this language. The written reply is still available.',
+      ],
+      'secure-context-required': [
+        'El micrófono solo funciona en localhost o en una conexión HTTPS segura.',
+        'Microphone access requires localhost or a secure HTTPS connection.',
+      ],
+    }
+    return tx(language, ...messages[voiceError])
   }
 
   useEffect(() => {
     scrollChatToLatest()
   }, [messages.length, loading])
+
+  useEffect(() => {
+    const latestMessage = messages[messages.length - 1]
+    if (!pendingVoiceReplyRef.current || latestMessage?.role !== 'assistant') return
+    pendingVoiceReplyRef.current = false
+    const hasUtonCitation = latestMessage.sources?.some((source) => /uton|guion/i.test(source)) ?? false
+    speakReply(latestMessage.content, hasUtonCitation ? 'es' : language)
+  }, [language, messages, speakReply])
+
+  useEffect(() => {
+    return () => {
+      cancelVoiceInput()
+      window.speechSynthesis?.cancel()
+      activeUtteranceRef.current = null
+    }
+  }, [cancelVoiceInput])
+
+  useEffect(() => {
+    cancelVoiceInput()
+    window.speechSynthesis?.cancel()
+    activeUtteranceRef.current = null
+  }, [cancelVoiceInput, language])
 
   useEffect(() => {
     try { window.localStorage.setItem('kumanday_chat_draft_v1', input) } catch { /* optional cache */ }
@@ -192,10 +572,10 @@ export function RagChat({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" disabled={loading} onClick={() => { setInput(''); try { window.localStorage.removeItem('kumanday_chat_draft_v1') } catch { /* optional cache */ }; onStartNewChat() }} aria-label={tx(language, 'Empezar un chat nuevo', 'Start a new chat')} title={tx(language, 'Chat nuevo', 'New chat')} className="toolbar-button">
+          <button type="button" disabled={loading || visibleVoiceStatus === 'listening' || visibleVoiceStatus === 'preparing' || visibleVoiceStatus === 'transcribing'} onClick={() => { stopSpeaking(); setInput(''); try { window.localStorage.removeItem('kumanday_chat_draft_v1') } catch { /* optional cache */ }; onStartNewChat() }} aria-label={tx(language, 'Empezar un chat nuevo', 'Start a new chat')} title={tx(language, 'Chat nuevo', 'New chat')} className="toolbar-button">
             <MessageSquarePlus className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">{tx(language, 'Nuevo chat', 'New chat')}</span>
           </button>
-          <button type="button" disabled={loading} onClick={() => { const accepted = onClearCache(); if (accepted) setInput('') }} aria-label={tx(language, 'Limpiar caché local', 'Clear local cache')} title={tx(language, 'Limpiar caché', 'Clear cache')} className="toolbar-button toolbar-button-muted">
+          <button type="button" disabled={loading || visibleVoiceStatus === 'listening' || visibleVoiceStatus === 'preparing' || visibleVoiceStatus === 'transcribing'} onClick={() => { stopSpeaking(); const accepted = onClearCache(); if (accepted) setInput('') }} aria-label={tx(language, 'Limpiar caché local', 'Clear local cache')} title={tx(language, 'Limpiar caché', 'Clear cache')} className="toolbar-button toolbar-button-muted">
             <DatabaseZap className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">{tx(language, 'Caché', 'Cache')}</span>
           </button>
         </div>
@@ -207,7 +587,7 @@ export function RagChat({
           <button
             key={chip}
             type="button"
-            disabled={loading}
+            disabled={loading || ['preparing', 'listening', 'transcribing'].includes(visibleVoiceStatus)}
             onClick={() => sendPrompt(chip)}
             className="min-h-[44px] shrink-0 whitespace-nowrap rounded-full border border-mountain-border bg-white px-3.5 py-2 text-xs font-semibold text-mountain-ink hover:bg-moss-surface hover:border-frailejon/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
@@ -257,6 +637,18 @@ export function RagChat({
                 <p className="whitespace-pre-line text-sm leading-relaxed text-mountain-ink">
                   {msg.content}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const hasUtonCitation = msg.sources?.some((source) => /uton|guion/i.test(source)) ?? false
+                    speakReply(msg.content, hasUtonCitation ? 'es' : language)
+                  }}
+                  aria-label={tx(language, 'Leer respuesta en voz alta', 'Read reply aloud')}
+                  title={tx(language, 'Leer respuesta en voz alta', 'Read reply aloud')}
+                  className="toolbar-icon-button min-h-[44px] min-w-[44px] self-end"
+                >
+                  <Volume2 className="h-4 w-4" aria-hidden="true" />
+                </button>
 
                 {msg.suggestedAction === 'open_safety' && (
                   <button
@@ -280,7 +672,7 @@ export function RagChat({
                   </button>
                 )}
 
-                {(msg.toolsUsed?.length || msg.sources?.length) && (
+                {Boolean(msg.toolsUsed?.length || msg.sources?.length) && (
                   <details className="border-t border-mountain-border/40 pt-2">
                     <summary className="cursor-pointer text-[11px] font-medium text-mountain-muted">{language === 'es' ? 'Ver fuente y modo de respuesta' : 'Show source and response mode'}</summary>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -325,6 +717,21 @@ export function RagChat({
         onSubmit={handleSubmit}
         className="chat-composer rounded-2xl border border-mountain-border bg-white/95 p-1.5 shadow-lg backdrop-blur-md flex items-center gap-2"
       >
+        {visibleVoiceStatus !== 'idle' && (
+          <div className="voice-status" role="status" aria-live="polite">
+            {visibleVoiceStatus === 'listening' && <span className="status-pulse inline-block h-2 w-2 rounded-full bg-life-alert" aria-hidden="true" />}
+            <span>{voiceStatusMessage()}</span>
+            {visibleVoiceStatus === 'speaking' && (
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="shrink-0 rounded-full px-2 py-1 font-semibold text-frailejon-deep hover:bg-moss-surface"
+              >
+                {tx(language, 'Detener audio', 'Stop audio')}
+              </button>
+            )}
+          </div>
+        )}
         <label htmlFor="rag-chat-input" className="sr-only">
           {tx(language, 'Escribe tu pregunta para Kumanday', 'Type your question for Kumanday')}
         </label>
@@ -334,14 +741,34 @@ export function RagChat({
           type="text"
           autoComplete="off"
           value={input}
-          disabled={loading}
+          disabled={loading || ['preparing', 'listening', 'transcribing'].includes(visibleVoiceStatus)}
           onChange={(e) => setInput(e.target.value)}
           placeholder={tx(language, 'Pregúntale algo a Kumanday…', 'Ask Kumanday a question…')}
           className="min-h-[48px] flex-1 min-w-0 rounded-full bg-transparent px-4 text-sm text-mountain-ink placeholder:text-mountain-muted/70 focus:outline-none disabled:opacity-60"
         />
         <button
+          type="button"
+          onClick={handleVoiceButton}
+          disabled={loading || visibleVoiceStatus === 'preparing' || visibleVoiceStatus === 'transcribing'}
+          aria-label={visibleVoiceStatus === 'listening'
+            ? tx(language, 'Detener y transcribir', 'Stop and transcribe')
+            : tx(language, 'Preguntar por voz', 'Ask by voice')}
+          title={visibleVoiceStatus === 'listening'
+            ? tx(language, 'Detener y transcribir', 'Stop and transcribe')
+            : tx(language, 'Preguntar por voz', 'Ask by voice')}
+          className={`min-h-[48px] min-w-[48px] shrink-0 rounded-full inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+            visibleVoiceStatus === 'listening'
+              ? 'bg-sos-red text-white'
+              : 'bg-moss-container text-frailejon-deep hover:bg-moss-surface'
+          }`}
+        >
+          {visibleVoiceStatus === 'listening'
+            ? <MicOff className="h-5 w-5" aria-hidden="true" />
+            : <Mic className="h-5 w-5" aria-hidden="true" />}
+        </button>
+        <button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading || !input.trim() || ['preparing', 'listening', 'transcribing'].includes(visibleVoiceStatus)}
           aria-label={tx(language, 'Enviar consulta a Kumanday', 'Send question to Kumanday')}
           className="min-h-[48px] min-w-[48px] shrink-0 rounded-full bg-frailejon text-white inline-flex items-center justify-center hover:bg-frailejon-deep disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >

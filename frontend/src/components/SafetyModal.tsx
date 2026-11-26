@@ -82,11 +82,11 @@ const ENGLISH_CONTACTS: Record<string, { name: string; description: string }> = 
 const GPS_MESSAGES: Record<GpsMessageKey, { es: string; en: string }> = {
   insecure: { es: 'La ubicación requiere HTTPS o abrir la app en localhost.', en: 'Location access requires HTTPS or opening the app on localhost.' },
   unsupported: { es: 'Este navegador no ofrece geolocalización.', en: 'This browser does not support geolocation.' },
-  requesting: { es: 'Solicitando ubicación al dispositivo…', en: 'Requesting location from your device…' },
+  requesting: { es: 'Solicitando ubicación al dispositivo. En teléfonos con GPS puede tardar hasta 2 minutos sin Wi‑Fi; prueba al aire libre.', en: 'Requesting location from your device. Phones with GPS may take up to 2 minutes without Wi-Fi; try outdoors.' },
   received: { es: 'Ubicación recibida. La precisión depende de la señal del dispositivo.', en: 'Location received. Accuracy depends on your device signal.' },
   denied: { es: 'Permiso de ubicación denegado. Puedes habilitarlo en la configuración del navegador.', en: 'Location permission denied. You can enable it in your browser settings.' },
-  unavailable: { es: 'El dispositivo no pudo determinar la ubicación. Inténtalo en un lugar con mejor señal.', en: 'Your device could not determine your location. Try again where the signal is better.' },
-  timeout: { es: 'La solicitud de ubicación agotó el tiempo. Inténtalo de nuevo.', en: 'The location request timed out. Please try again.' },
+  unavailable: { es: 'El dispositivo no pudo determinar la ubicación. En un teléfono, inténtalo al aire libre; en un PC, puede requerir Wi‑Fi o un receptor GPS.', en: 'Your device could not determine the location. Try outdoors on a phone; a PC may need Wi-Fi or a GPS receiver.' },
+  timeout: { es: 'No se determinó la ubicación en 2 minutos. En un teléfono con GPS, prueba al aire libre; en un PC, puede requerir Wi‑Fi o un receptor GPS.', en: 'Location was not determined within 2 minutes. On a phone with GPS, try outdoors; a PC may need Wi-Fi or a GPS receiver.' },
   copied: { es: 'Coordenadas copiadas.', en: 'Coordinates copied.' },
   'copy-failed': { es: 'No se pudieron copiar. Mantén pulsadas las coordenadas para seleccionarlas.', en: 'Could not copy. Press and hold the coordinates to select them.' },
 }
@@ -164,7 +164,7 @@ export function SafetyModal({
         setGpsMessage(message)
         setLocating(false)
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 120000, maximumAge: 0 },
     )
   }
 
@@ -304,7 +304,7 @@ export function SafetyModal({
               <h3 className="text-sm font-bold text-mountain-ink">{tx(language, 'Qué hacer para pedir ayuda', 'How to ask for help')}</h3>
             </div>
             <p className="text-xs leading-relaxed text-mountain-muted">
-              {tx(language, 'Esta aplicación no tiene conexión satelital ni transmite una baliza. Si es útil y tienes señal, obtén tus coordenadas GPS y compártelas con el guía autorizado o el personal del parque. Solicita que activen el protocolo de emergencia.', 'This app has no satellite connection and cannot transmit an SOS beacon. If useful and you have a signal, obtain your GPS coordinates and share them with the authorized guide or park staff. Ask them to activate the emergency protocol.')}
+              {tx(language, 'Esta aplicación no tiene conexión satelital ni transmite una baliza. La ubicación depende del dispositivo: un teléfono con GPS puede obtener coordenadas sin Wi‑Fi, sobre todo al aire libre; un PC suele necesitar Wi‑Fi o un receptor GPS. Compartirlas sí requiere comunicación. Si es útil, compártelas con el guía autorizado o el personal del parque y solicita que activen el protocolo de emergencia.', 'This app has no satellite connection and cannot transmit an SOS beacon. Location depends on the device: a phone with GPS can obtain coordinates without Wi-Fi, especially outdoors; a PC usually needs Wi-Fi or a GPS receiver. Sharing them does require communication. If useful, share them with the authorized guide or park staff and ask them to activate the emergency protocol.')}
             </p>
 
             <button
@@ -314,7 +314,7 @@ export function SafetyModal({
               className="min-h-[52px] w-full rounded-full bg-sos-red px-4 text-sm font-bold text-white inline-flex items-center justify-center gap-2 hover:opacity-95 disabled:opacity-60 cursor-pointer"
             >
               <LocateFixed className="h-5 w-5" aria-hidden="true" />
-              <span>{locating ? tx(language, 'Solicitando GPS…', 'Requesting GPS…') : tx(language, 'Obtener coordenadas GPS', 'Get GPS coordinates')}</span>
+              <span>{locating ? tx(language, 'Buscando ubicación…', 'Finding location…') : tx(language, 'Obtener ubicación del dispositivo', 'Get device location')}</span>
             </button>
             {coords && (
               <div className="rounded-xl border border-sos-red/30 bg-sos-surface p-3 text-center">

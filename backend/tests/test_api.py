@@ -2,6 +2,7 @@
 
 import base64
 import io
+import wave
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -17,6 +18,16 @@ def _make_sample_png_base64(size: tuple[int, int] = (120, 120)) -> str:
     img.save(buf, format="PNG")
     encoded = base64.b64encode(buf.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+def _make_voice_wav() -> bytes:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(16_000)
+        wav_file.writeframes(b"\x00\x00" * 16_000)
+    return buffer.getvalue()
 
 
 def _bundled_sample_base64(name: str) -> str:
@@ -67,6 +78,59 @@ async def test_uton_upload_extracts_text_and_page() -> None:
     body = response.json()
     assert body["chunks"][0]["page"] == 1
     assert "Aguacerales" in body["chunks"][0]["text"]
+
+
+async def test_voice_transcription_uses_local_model_and_selected_language() -> None:
+    wav_data = _make_voice_wav()
+    with patch("backend.main.transcribe_wav", return_value="¿Qué hace el frailejón?") as transcribe:
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/voice/transcribe?language=es",
+                content=wav_data,
+                headers={"Content-Type": "audio/wav"},
+            )
+
+    assert response.status_code == 200
+    assert response.json() == {"transcript": "¿Qué hace el frailejón?"}
+    transcribe.assert_called_once()
+    assert transcribe.call_args.args[0] == wav_data
+    assert transcribe.call_args.args[2] == "es"
+
+
+async def test_voice_transcription_rejects_bad_media_and_oversized_uploads() -> None:
+    async with _asgi_client() as client:
+        wrong_type = await client.post(
+            "/api/voice/transcribe",
+            content=b"audio",
+            headers={"Content-Type": "audio/webm"},
+        )
+        invalid_wav = await client.post(
+            "/api/voice/transcribe",
+            content=b"not a wav",
+            headers={"Content-Type": "audio/wav"},
+        )
+        oversized = await client.post(
+            "/api/voice/transcribe",
+            content=b"\x00" * 1_000_001,
+            headers={"Content-Type": "audio/wav"},
+        )
+
+    assert wrong_type.status_code == 415
+    assert invalid_wav.status_code == 422
+    assert oversized.status_code == 413
+
+
+async def test_voice_transcription_reports_missing_local_model() -> None:
+    with patch("backend.main.transcribe_wav", side_effect=FileNotFoundError("missing")):
+        async with _asgi_client() as client:
+            response = await client.post(
+                "/api/voice/transcribe",
+                content=_make_voice_wav(),
+                headers={"Content-Type": "audio/wav"},
+            )
+
+    assert response.status_code == 503
+    assert "modelo local de voz" in response.json()["detail"]
 
 
 async def test_chat_abstains_without_cited_uton_evidence() -> None:

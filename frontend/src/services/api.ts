@@ -207,3 +207,16 @@ export async function postVision(payload: {
     return buildOfflineVisionFallback(payload.hint, payload.language)
   }
 }
+
+export async function postVoiceTranscription(
+  audio: Blob,
+  language: 'es' | 'en',
+  signal?: AbortSignal,
+): Promise<{ transcript: string }> {
+  return fetchJson(
+    `${API_BASE}/voice/transcribe?language=${language}`,
+    { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: audio },
+    45000,
+    signal,
+  )
+}

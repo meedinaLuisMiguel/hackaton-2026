@@ -36,6 +36,7 @@ dmypy.json
 uv-cache/
 
 .env
+models/
 
 .idea/
 

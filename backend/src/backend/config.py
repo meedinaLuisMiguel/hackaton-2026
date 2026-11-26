@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:4b"
     ollama_vision_model: str = "gemma3:4b"
     ollama_timeout_seconds: float = 45.0
+    speech_model_path: str = "models/ggml-base.bin"
     cors_origins: list[str] = ["*"]
 
 

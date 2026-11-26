@@ -1,14 +1,16 @@
 """FastAPI entry point for Kumanday — Agente IA del PNN Los Nevados."""
 
+import asyncio
 import csv
 import io
 import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Literal
 
 import httpx
 import pymupdf
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -33,9 +35,11 @@ from backend.schemas import (
     VisionRequest,
     VisionResponse,
 )
+from backend.speech import transcribe_wav
 
 settings = get_settings()
 MAX_GUIDE_BYTES = 8 * 1024 * 1024
+MAX_VOICE_BYTES = 1_000_000
 SUPPORTED_GUIDE_SUFFIXES = {".pdf", ".txt", ".csv", ".docx"}
 
 UTON_STATIONS = [
@@ -171,8 +175,8 @@ async def upload_uton(file: UploadFile) -> dict[str, object]:
             if pages and "UTON" not in pages[0].upper() and "LOS NEVADOS" not in pages[0].upper():
                 raise ValueError("El PDF no parece ser una fuente UTON del PNN Los Nevados.")
         else:
-            from zipfile import ZipFile
             from xml.etree import ElementTree
+            from zipfile import ZipFile
 
             with ZipFile(io.BytesIO(content)) as archive:
                 if "word/document.xml" not in archive.namelist():
@@ -236,6 +240,42 @@ async def post_chat(payload: ChatRequest, request: Request) -> ChatResponse:
         runtime_settings,
         http_client=_get_pooled_client(request),
     )
+
+
+@app.post("/api/voice/transcribe")
+async def transcribe_voice(
+    request: Request,
+    language: Literal["es", "en"] = Query(default="es"),
+) -> dict[str, str]:
+    """Transcribe a short WAV from a bounded request stream without temporary files."""
+    if request.headers.get("content-type", "").split(";", 1)[0].strip() not in {
+        "audio/wav",
+        "audio/x-wav",
+    }:
+        raise HTTPException(status_code=415, detail="Envía el audio como WAV.")
+
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > MAX_VOICE_BYTES:
+            raise HTTPException(status_code=413, detail="El audio supera el límite de 1 MB.")
+        content.extend(chunk)
+
+    try:
+        transcript = await asyncio.to_thread(
+            transcribe_wav,
+            bytes(content),
+            get_settings().speech_model_path,
+            language,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="El modelo local de voz no está instalado. Consulta las instrucciones del backend.",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {"transcript": transcript}
 
 
 @app.post("/api/vision", response_model=VisionResponse)
