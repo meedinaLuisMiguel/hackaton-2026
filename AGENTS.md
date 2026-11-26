@@ -2,21 +2,24 @@
 
 > **Proyecto:** Guía de Páramo Sin Señal — PNN Los Nevados  
 > **Contexto:** Hackatón INNOVA GENERACIONES (Universidad de Caldas & ACOPI Caldas)  
-> **Misión:** Aplicación web *mobile-first* para interpretación ambiental y orientación de seguridad en el Parque Nacional Natural Los Nevados (Colombia). Catálogos, radar, protocolos y bitácora tienen respaldo local; chat y visión usan Ollama local cuando está disponible y cuentan con respuestas de respaldo donde la app lo permite. No afirmar que la app tenga mapas de rutas descargables.
+> **Misión:** Aplicación web *mobile-first* de interpretación ambiental para el recorrido norte del Parque Nacional Natural Los Nevados. La experiencia principal se organiza por estaciones y la IA prioriza los guiones UTON, mostrando documento y página cuando respaldan una respuesta. Si no hay evidencia UTON, puede ofrecer información general de naturaleza claramente marcada como no validada por UTON, sin atribuir al parque presencia o abundancia de especies. Las preguntas médicas, volcánicas, de acceso o actualidad se derivan a un guía experto autorizado. No afirmar que la app tenga mapas de rutas descargables ni capacidad de SOS satelital.
 
 ---
 
 ## 1. Decisiones Arquitectónicas Acordadas
 
 1. **Formato de entrega:** Web App tradicional (`FastAPI + React + Docker Compose`), sin servidor MCP ni empaquetado single-file.
-2. **Motor de IA local:** Ollama local (`gemma3:4b` por defecto, configurable vía `OLLAMA_MODEL` y `OLLAMA_VISION_MODEL`) con respuestas deterministas de respaldo para chat y funciones locales para continuidad. El indicador de estado representa conexión con el backend/modelo local, no conexión general a Internet.
+2. **Motor de IA local:** Ollama local (`gemma3:4b` por defecto) para sintetizar evidencia recuperada de guiones UTON. La evidencia UTON es prioritaria y toda respuesta respaldada lleva documento y página. Si falta un fragmento pertinente, el modelo puede explicar conceptos generales de naturaleza con un aviso fijo de que no están en los guiones ni validados por UTON; no puede presentar conocimiento general como dato local del parque. Las preguntas médicas, volcánicas, de acceso o actualidad se abstienen y remiten a un guía autorizado. El catálogo local puede responder consultas generales de biodiversidad, identificándose como catálogo y no como inventario completo. Sin Ollama se permiten respuestas deterministas del catálogo y extractos UTON citados.
 3. **Alcance funcional y UI/UX:** Fusión completa entre [prompt_maestro_setup_agente_ia.md](prompt_maestro_setup_agente_ia.md) y los prototipos en `UX_UI/`:
-   - Radar GPS + simulador de altitud (`2.300 m` – `4.800 m`)
-   - 3 rutas incluidas en el catálogo con estaciones y reglas; no se descargan mapas de ruta
-   - Bitácora offline de observaciones en ruta (`localStorage`)
+   - Catálogo experiencial por cinco paradas del recorrido norte: Brisas, Aguacerales, Arenales, Lunares/Valle Lunar y Valle de las Tumbas.
+   - Citas de los dos guiones UTON con página en cada respuesta respaldada.
+   - Carga local de fuentes PDF, TXT, CSV y DOCX; el contenido cargado reemplaza las fuentes iniciales durante la sesión y no se persiste como contenido aprobado.
+   - Selector de español/inglés; si la fuente validada está únicamente en español, el agente conserva el idioma original para evitar traducciones no verificadas.
+   - Solicitud explícita de coordenadas GPS desde SOS, mostrando precisión estimada; la app no transmite alertas. No hay radar ni simulador de altitud en la interfaz.
+   - Bitácora offline de observaciones en ruta (`localStorage`) como herramienta secundaria.
    - Lente de Páramo (visión desde cámara/archivo y 4 muestras locales; puede describir objetos cotidianos y aclara que su especialidad es el PNN Los Nevados)
-   - Agente Kumanday (chat con contexto, herramientas locales y respaldo; puede responder consultas generales breves e indicar que su especialidad es el parque)
-   - Módulo *Protegiendo la Vida* (triaje informativo de soroche, hipotermia y riesgo volcánico + flujo SOS simulado + directorio de emergencias de Caldas)
+   - Agente Kumanday (chat con prioridad UTON y citas visibles, respuestas generales de naturaleza marcadas como no validadas, abstención y derivación a guía autorizado).
+   - Módulo *Protegiendo la Vida* informativo de soroche, hipotermia y riesgo volcánico + directorio de emergencias de Caldas. No diagnostica ni simula envío satelital.
 4. **Entorno de ejecución:** Docker Compose como entorno principal + ejecución nativa en Windows (`uv` + `pnpm` + `ollama`).
 5. **Cero dependencias externas en runtime:** Sin Google Fonts, sin CDNs de Tailwind ni URLs remotas de imágenes; todos los íconos (`lucide-react`) e imágenes de prueba (`frontend/public/samples/`) están empaquetados localmente.
 
@@ -28,6 +31,7 @@
 - **Lenguaje y gestor:** Python `3.15` (`uv`)
 - **Framework y librerías:** `fastapi[standard]`, `uvicorn`, `httpx`, `pillow`, `pydantic-settings`, `python-multipart`
 - **Calidad y pruebas:** `ruff` (linting), `ty` (type checking), `pytest` + `pytest-asyncio` (pruebas con `httpx.ASGITransport`)
+- **Extracción documental:** `pymupdf` para texto y páginas PDF; TXT/CSV por biblioteca estándar; DOCX mediante XML estándar. Archivos escaneados sin capa de texto se rechazan.
 
 ### Frontend (`frontend/`)
 - **Core:** React `19.3.1`, TypeScript `~7.0.2`, Vite `8.3.8` (`pnpm`)
@@ -64,6 +68,7 @@ hackaton-2026/
 │   │   ├── rag_engine.py                 # Recuperación local, Ollama Chat/Vision y fallback
 │   │   └── data/
 │   │       └── pnnn_knowledge.json       # Base científica verificada del PNN Los Nevados
+│   │       └── uton_guides.json            # Texto paginado de los 2 guiones oficiales del reto
 │   └── tests/
 │       ├── test_knowledge_and_radar.py   # Pruebas unitarias de conocimiento y altitudes
 │       └── test_api.py                   # Pruebas async de integración + mocks Ollama
@@ -86,7 +91,6 @@ hackaton-2026/
         └── components/
             ├── Navbar.tsx                # Barra inferior flotante estilo píldora
             ├── KumandayMark.tsx           # Emblema vectorial compartido
-            ├── GpsRadar.tsx              # GNSS + simulador de altitud + riesgo soroche
             ├── TrailCatalog.tsx          # Buscador, 3 rutas PNNN y Bitácora offline
             ├── VisionLens.tsx            # Visor de cámara/archivo + muestras rápidas
             ├── RagChat.tsx               # Chat científico RAG con chips rápidos
@@ -100,15 +104,18 @@ hackaton-2026/
 ### Endpoints del Backend (`http://localhost:8000`)
 - `GET /api/health` — Verifica conectividad con Ollama (`/api/tags`), modelos activos, cantidad de especies y disponibilidad local de respaldo (`offline_ready`). No mide conexión a Internet.
 - `GET /api/rutas` — Devuelve las 3 rutas oficiales de `pnnn_knowledge.json`.
+- `GET /api/estaciones` — Devuelve cinco paradas de interpretación con resumen, experiencia y citas UTON.
+- `GET /api/fuentes/uton` — Devuelve fragmentos extraídos por página de los dos guiones empaquetados.
+- `POST /api/fuentes/uton` — Valida y extrae PDF/TXT/CSV/DOCX (máximo 8 MiB) para uso local en la sesión del usuario.
 - `GET /api/especies` — Devuelve el catálogo de 12 especies.
 - `GET /api/radar?altitud=<m>` — Calcula piso térmico, temperatura estimada, especies probables y riesgo de soroche.
 - `GET /api/protocolos` — Devuelve protocolos de vida (`soroche`, `hipotermia`, `volcanico`) y directorio de emergencias de Caldas.
-- `POST /api/chat` — En preguntas del parque ejecuta herramientas locales y recupera datos de `pnnn_knowledge.json` (normaliza tildes y prioriza palabras clave de seguridad), consulta a Ollama y usa respuestas deterministas para consultas cubiertas si falla. En preguntas generales puede responder con Ollama y recuerda brevemente la especialidad del agente.
+- `POST /api/chat` — Prioriza fragmentos UTON con fuente y página; si no hay evidencia pertinente, usa el catálogo local o permite una explicación general de naturaleza marcada como no validada por UTON. No atribuye al parque afirmaciones generales de presencia o abundancia. Se abstiene en consultas médicas, volcánicas, de acceso y actualidad; sin Ollama limita las respuestas a datos locales deterministas o extractos UTON.
 - `POST /api/vision` — Valida base64 e imágenes raster JPEG/PNG/WebP (hasta 8 MiB y mínimo 32×32), corrige orientación EXIF, redimensiona a máximo `512px` JPEG con Pillow, consulta a Ollama multimodal y valida especies contra el catálogo. También puede describir objetos fuera del catálogo sin presentarlos como especies del parque. Los hints locales se limitan a muestras de demostración; no inventar identificaciones de fotos del usuario si el modelo falla.
 
 ### Estrategia *Offline-First* en el Frontend
 - Cada llamada en `src/services/api.ts` usa `AbortController` con timeout corto para lectura (`2.5s`–`3.5s`) y `45s` para inferencia IA (`/api/chat`, `/api/vision`).
-- Si el backend o Ollama no responden, `offlineData.ts` calcula localmente el radar de altitud, responde consultas clave del chat y ofrece fichas para las muestras locales de visión sin presentar esas fichas como análisis de una foto arbitraria.
+- Si el backend no responde, el chat se abstiene; no usa el respaldo general antiguo. Catálogo y datos UTON deben estar precargados para uso sin conexión. Los archivos subidos no se guardan ni se aprueban automáticamente.
 - La bitácora de campo persiste localmente en `localStorage` (`pnnn_bitacora_v1`). El catálogo de rutas está incluido, pero no hay descarga de mapas ni un botón para guardar rutas.
 
 ---
@@ -116,9 +123,10 @@ hackaton-2026/
 ## 5. Reglas del Proyecto para Futuros Agentes
 
 1. **100 % gratuito y local:** Prohibido integrar APIs de pago o servicios externos en la app.
-2. **Rigor científico y prioridad de vida:** Toda respuesta debe apoyarse en `pnnn_knowledge.json` y priorizar protocolos de descenso ante síntomas de soroche, hipotermia o actividad volcánica.
+2. **Rigor científico y prioridad de vida:** Las respuestas atribuidas a UTON requieren fragmentos con documento y página. La información general de naturaleza sin respaldo UTON debe etiquetarse como no validada y nunca usarse para afirmar presencia, abundancia o ubicación de especies en el PNNN. Los datos fechados nunca se presentan como actuales. Preguntas médicas, volcánicas, de acceso o condiciones actuales se derivan a un guía experto autorizado; no afirmar diagnóstico, alerta actual ni capacidad de transmisión SOS.
 3. **Estética y ergonomía:** Mantener el diseño mobile-first, alto contraste en ambos temas y controles táctiles accesibles (objetivo mínimo de 44 px cuando aplique). La barra inferior fija, el compositor móvil y áreas seguras no deben cubrir contenido.
 4. **Cero regresiones:** Ejecutar las comprobaciones de calidad antes de cerrar cualquier cambio.
+5. **Autoridad de fuentes:** La carga de archivo es temporal y no convierte automáticamente una guía en fuente oficial. El personal autorizado debe revisar/validar versión, contenido y páginas antes de publicarla para visitantes.
 
 ---
 
@@ -186,7 +194,19 @@ pnpm build
 - [x] Secuencia de bienvenida de 7,2 segundos con CTA visible, opción **Saltar animación** y soporte de `prefers-reduced-motion`.
 - [x] Temas claro/oscuro, contraste semántico, botones de seguridad/tema agrupados y controles accesibles para subir al inicio.
 - [x] Chat móvil: compositor anclado sobre teclado mediante `VisualViewport`; mensajes como única zona desplazable mientras el teclado está abierto; evitar saltos al entrar desde pestañas ocultas.
-- [x] Rutas & GPS: retirado el falso control de guardar/descargar mapas; estaciones y reglas se expanden manteniendo visible la tarjeta; el gesto global no debe interferir con el slider.
+- [x] Rutas & GPS: retirado el falso control de guardar/descargar mapas; estaciones y reglas se expanden manteniendo visible la tarjeta; el gesto global no debe interferir con los controles.
 - [x] Pie de créditos al final en pestañas cortas sin superponerse al contenido largo; la pestaña de chat reserva espacio para el compositor fijo.
 - [ ] Revisar en dispositivo móvil físico el teclado virtual, permisos de cámara/ubicación y gestos; la vista previa de escritorio no sustituye esa verificación.
 - [x] Consolidar documentación técnica en este `agent.md`, completar `backend/README.md` y conservar el README de raíz para ejecución/demo/producto.
+
+### Fase 4 — Adaptación al reto UTON (En curso)
+- [x] Identificar requisitos de ficha técnica y presentación: operación local, recorrido norte, cita por guion/página, abstención y derivación a guía.
+- [x] Crear catálogo de cinco paradas basado en fuentes: Brisas, Aguacerales, Arenales, Lunares/Valle Lunar y Valle de las Tumbas.
+- [x] Extraer y empaquetar texto paginado de los dos guiones suministrados.
+- [x] Añadir carga de PDF/TXT/CSV/DOCX limitada a 8 MiB y temporal por sesión.
+- [x] Priorizar citas UTON; permitir explicaciones generales de naturaleza solo con aviso explícito y límites de presencia local; abstenerse ante actualidad, acceso o seguridad.
+- [x] Sustituir la falsa baliza SOS por información honesta y remisión al personal autorizado.
+- [x] Retirar el radar y simulador de altitud de la pantalla de estaciones; SOS solicita coordenadas GPS solo bajo acción y permiso explícitos, informa precisión estimada y permite copiar la ubicación.
+- [ ] Confirmar con UTON la validez oficial de cifras, reglas, estación Brisas, nombres culturales y contenido de seguridad; los materiales entregados no resuelven todas las discrepancias.
+- [ ] Persistir y administrar fuentes aprobadas mediante un flujo exclusivo para personal autorizado, con versionado/auditoría.
+- [ ] Validar con el hardware asignado consumo, velocidad, idioma alternativo y operación totalmente desconectada.

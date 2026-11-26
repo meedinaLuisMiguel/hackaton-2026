@@ -1,21 +1,19 @@
-import { ArrowLeft, ArrowRight, CloudOff, Leaf, Moon, ShieldAlert, Sun, Wifi } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, CloudOff, FileUp, Languages, Leaf, LoaderCircle, Moon, ShieldAlert, Sparkles, Sun } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GpsRadar } from './components/GpsRadar'
 import { KumandayMark } from './components/KumandayMark'
 import { Navbar } from './components/Navbar'
 import { RagChat } from './components/RagChat'
 import { SafetyModal } from './components/SafetyModal'
-import { TrailCatalog } from './components/TrailCatalog'
+import { StationCatalog } from './components/StationCatalog'
 import { VisionLens } from './components/VisionLens'
 import {
   INITIAL_BITACORA,
   OFFLINE_DIRECTORIO,
   OFFLINE_ESPECIES,
   OFFLINE_PROTOCOLOS,
-  OFFLINE_RUTAS,
-  calculateOfflineRadar,
 } from './data/offlineData'
-import { getEspecies, getHealth, getProtocolos, getRadar, getRutas, postChat } from './services/api'
+import { getEspecies, getEstaciones, getHealth, getProtocolos, getUtonSources, uploadUtonFile, postChat } from './services/api'
+import { tx, type Language } from './i18n'
 import type {
   AppTab,
   BitacoraEntry,
@@ -24,8 +22,8 @@ import type {
   EmergenciaContacto,
   Especie,
   HealthResponse,
+  Estacion,
   ProtocoloVida,
-  RadarResponse,
   Ruta,
   UiChatMessage,
 } from './types/paramo'
@@ -35,12 +33,17 @@ const STORAGE_APP = 'kumanday_app_state_v1'
 const STORAGE_THEME = 'kumanday_theme_v1'
 const CHAT_VERSION = 'kumanday_chat_version_v2'
 
-const WELCOME_MSG: UiChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content:
-    'Soy Kumanday, tu guía inteligente para explorar el PNN Los Nevados. Puedo ayudarte con rutas, especies, altitud y seguridad; también describo objetos o respondo dudas generales, y te indicaré cuando salgamos de mi especialidad.',
-  sources: ['Base Científica PNN Los Nevados'],
+function welcomeMessage(language: Language): UiChatMessage {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: tx(
+      language,
+      'Soy Kumanday, tu guía inteligente para explorar el PNN Los Nevados. Puedo ayudarte con estaciones, especies y seguridad; también describo objetos o respondo dudas generales, y te indicaré cuando salgamos de mi especialidad.',
+      'I am Kumanday, your intelligent guide to Los Nevados National Natural Park. I can help with stations, species, and safety; I can also describe objects or answer general questions, and I will let you know when a question is outside my expertise.',
+    ),
+    sources: ['Base Científica PNN Los Nevados'],
+  }
 }
 
 function loadStoredArray<T>(key: string, fallback: T[]): T[] {
@@ -54,21 +57,21 @@ function loadStoredArray<T>(key: string, fallback: T[]): T[] {
   }
 }
 
-function loadAppState(): { altitude: number; chatMessages: UiChatMessage[]; lastSpecies: string | null } | null {
+function loadAppState(language: Language): { chatMessages: UiChatMessage[]; lastSpecies: string | null } | null {
   try {
     if (window.localStorage.getItem(CHAT_VERSION) !== '2') {
       window.localStorage.removeItem(STORAGE_APP)
       window.localStorage.setItem(CHAT_VERSION, '2')
     }
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_APP) ?? 'null') as Partial<{
-      altitude: number
       chatMessages: UiChatMessage[]
       lastSpecies: string | null
     }> | null
     if (!parsed) return null
     return {
-      altitude: typeof parsed.altitude === 'number' ? Math.max(2300, Math.min(4800, parsed.altitude)) : 4150,
-      chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages.slice(-40) : [WELCOME_MSG],
+      chatMessages: Array.isArray(parsed.chatMessages)
+        ? parsed.chatMessages.slice(-40).map((message) => message.id === 'welcome' ? welcomeMessage(language) : message)
+        : [welcomeMessage(language)],
       lastSpecies: typeof parsed.lastSpecies === 'string' ? parsed.lastSpecies : null,
     }
   } catch {
@@ -77,7 +80,10 @@ function loadAppState(): { altitude: number; chatMessages: UiChatMessage[]; last
 }
 
 function App() {
-  const [initialState] = useState(() => loadAppState())
+  const [language, setLanguage] = useState<Language>(() => {
+    try { return window.localStorage.getItem('kumanday_language_v1') === 'en' ? 'en' : 'es' } catch { return 'es' }
+  })
+  const [initialState] = useState(() => loadAppState(language))
   // Every fresh app load begins on the welcome cover. Navigation happens only after entry.
   const [homeOpen, setHomeOpen] = useState(true)
   const [welcomeIntroComplete, setWelcomeIntroComplete] = useState(() =>
@@ -86,11 +92,13 @@ function App() {
   const [darkMode, setDarkMode] = useState(() => {
     try { return window.localStorage.getItem(STORAGE_THEME) === 'dark' } catch { return false }
   })
-  const [activeTab, setActiveTab] = useState<AppTab>('rutas')
-  const [altitude, setAltitude] = useState<number>(initialState?.altitude ?? 4150)
+  const [activeTab, setActiveTab] = useState<AppTab>('estaciones')
   const [coords, setCoords] = useState<Coordenadas | null>(null)
-  const [remoteRadar, setRemoteRadar] = useState<RadarResponse | null>(null)
-  const [rutas, setRutas] = useState<Ruta[]>(OFFLINE_RUTAS)
+  const [estaciones, setEstaciones] = useState<Estacion[]>([])
+  const [guideChunks, setGuideChunks] = useState<Array<{text:string;page:number;source:string}>>([])
+  const [guideName, setGuideName] = useState('Guiones UTON incluidos')
+  const [uploadMessage, setUploadMessage] = useState('')
+  const [guideChunksReady, setGuideChunksReady] = useState(false)
   const [especies, setEspecies] = useState<Especie[]>(OFFLINE_ESPECIES)
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [protocolos, setProtocolos] = useState<Record<string, ProtocoloVida>>(OFFLINE_PROTOCOLOS)
@@ -98,16 +106,11 @@ function App() {
   const [safetyOpen, setSafetyOpen] = useState(false)
 
   // Lifted chat & species focus state prevents StrictMode double-sends and preserves history across tabs
-  const [chatMessages, setChatMessages] = useState<UiChatMessage[]>(initialState?.chatMessages ?? [WELCOME_MSG])
+  const [chatMessages, setChatMessages] = useState<UiChatMessage[]>(initialState?.chatMessages ?? [welcomeMessage('es')])
   const [chatLoading, setChatLoading] = useState(false)
   const [lastSpecies, setLastSpecies] = useState<string | null>(initialState?.lastSpecies ?? null)
   const sendingChatRef = useRef(false)
   const msgSeqRef = useRef(1)
-
-  const radar =
-    remoteRadar && remoteRadar.altitud_m === altitude
-      ? remoteRadar
-      : calculateOfflineRadar(altitude)
 
   const [bitacora, setBitacora] = useState<BitacoraEntry[]>(() =>
     loadStoredArray<BitacoraEntry>(STORAGE_BITACORA, INITIAL_BITACORA),
@@ -119,6 +122,11 @@ function App() {
   }, [darkMode])
 
   useEffect(() => {
+    document.documentElement.lang = language
+    try { window.localStorage.setItem('kumanday_language_v1', language) } catch { /* optional preference */ }
+  }, [language])
+
+  useEffect(() => {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (motionPreference.matches) return
     const timer = window.setTimeout(() => setWelcomeIntroComplete(true), 7200)
@@ -127,7 +135,8 @@ function App() {
 
   useEffect(() => {
     void getHealth().then(setHealth)
-    void getRutas().then(setRutas)
+    void getEstaciones().then(setEstaciones)
+    void getUtonSources().then((chunks) => { setGuideChunks(chunks); setGuideChunksReady(true) })
     void getEspecies().then(setEspecies)
     void getProtocolos().then((data) => {
       setProtocolos(data.protocolos_vida)
@@ -144,37 +153,26 @@ function App() {
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_APP, JSON.stringify({
-        altitude, chatMessages: chatMessages.slice(-40), lastSpecies,
+        chatMessages: chatMessages.slice(-40), lastSpecies,
       }))
     } catch {
       // Storage may be disabled or full; the in-memory experience still works.
     }
-  }, [altitude, chatMessages, lastSpecies])
+  }, [chatMessages, lastSpecies])
 
-  function enterExperience(tab: AppTab = 'rutas') {
+  function enterExperience(tab: AppTab = 'estaciones') {
     setActiveTab(tab)
     setHomeOpen(false)
   }
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      void getRadar(altitude, controller.signal).then((remote) => {
-        if (!controller.signal.aborted) {
-          setRemoteRadar(remote)
-        }
-      })
-    }, 150)
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [altitude])
 
   const sendChatMessage = useCallback(
     async (rawText: string, speciesOverride?: string, routeId?: string) => {
       const clean = rawText.trim()
       if (!clean || sendingChatRef.current) return
+      if (!guideChunksReady) {
+        setChatMessages((prev) => [...prev, { id: `a-${msgSeqRef.current++}`, role: 'assistant', content: tx(language, 'Estoy cargando las fuentes UTON. Espera un momento e inténtalo de nuevo.', 'UTON sources are still loading. Please wait a moment and try again.'), sources: [], fallbackUsed: true, model: 'fuentes-pendientes' }])
+        return
+      }
 
       sendingChatRef.current = true
       setChatLoading(true)
@@ -198,10 +196,11 @@ function App() {
       try {
         const res = await postChat({
           message: clean,
-          altitud_m: altitude,
           last_species: speciesOverride ?? lastSpecies ?? undefined,
           ruta_id: routeId,
           history,
+          guide_chunks: guideChunks,
+          language,
         })
         const botSeq = msgSeqRef.current++
         const assistantMsg: UiChatMessage = {
@@ -224,7 +223,7 @@ function App() {
           {
             id: `a-${botSeq}`,
             role: 'assistant',
-            content: 'El servicio local devolvió un error y no pude procesar la consulta. Intenta de nuevo; tus mensajes anteriores siguen disponibles.',
+            content: tx(language, 'El servicio local devolvió un error y no pude procesar la consulta. Intenta de nuevo; tus mensajes anteriores siguen disponibles.', 'The local service returned an error, so I could not process your question. Please try again; your previous messages are still available.'),
             sources: ['Estado local de Kumanday'],
             fallbackUsed: false,
             model: 'error-local',
@@ -235,7 +234,7 @@ function App() {
         sendingChatRef.current = false
       }
     },
-    [altitude, chatMessages, lastSpecies],
+    [chatMessages, lastSpecies, guideChunks, language, guideChunksReady],
   )
 
   function handleAskKumandayFromOutside(promptText: string, speciesContext?: string, routeId?: string) {
@@ -259,69 +258,100 @@ function App() {
   }
 
   function handleStartNewChat() {
-    setChatMessages([WELCOME_MSG])
+    setChatMessages([welcomeMessage(language)])
     setLastSpecies(null)
     try { window.localStorage.removeItem('kumanday_chat_draft_v1') } catch { /* optional cache */ }
   }
 
   function handleClearCache(): boolean {
-    const confirmed = window.confirm('¿Limpiar la caché de Kumanday? Se borrarán la conversación y los borradores locales. La bitácora se conservará.')
+    const confirmed = window.confirm(tx(language, '¿Limpiar la caché de Kumanday? Se borrarán la conversación y los borradores locales. La bitácora se conservará.', 'Clear Kumanday’s cache? The conversation and local drafts will be deleted. The field log will be kept.'))
     if (!confirmed) return false
     for (const key of [STORAGE_APP, 'kumanday_chat_draft_v1', 'kumanday_trail_search_open_v1', 'kumanday_trail_query_v1']) {
       try { window.localStorage.removeItem(key) } catch { /* optional cache */ }
     }
-    setChatMessages([WELCOME_MSG])
+    setChatMessages([welcomeMessage(language)])
     setLastSpecies(null)
-    setActiveTab('rutas')
-    setAltitude(4150)
+    setActiveTab('estaciones')
     return true
   }
 
+  function toggleLanguage() {
+    const nextLanguage = language === 'es' ? 'en' : 'es'
+    setLanguage(nextLanguage)
+    setChatMessages((previous) =>
+      previous.map((message) =>
+        message.id === 'welcome' ? welcomeMessage(nextLanguage) : message,
+      ),
+    )
+  }
+
   const iaActive = health?.ollama_connected ?? false
+  const headerStatus = health === null || !guideChunksReady
+    ? tx(language, 'Comprobando fuentes…', 'Checking sources…')
+    : !health.offline_ready
+      ? tx(language, 'Asistente sin conexión', 'Assistant offline')
+      : guideChunks.length === 0
+        ? tx(language, 'Fuentes UTON no cargadas', 'UTON sources not loaded')
+        : health.ollama_connected && health.model_available
+          ? tx(language, 'IA y fuentes listas', 'AI and sources ready')
+          : tx(language, 'Fuentes listas · IA generativa no disponible', 'Sources ready · generative AI unavailable')
 
   return (
     <div className={`app-shell relative mx-auto min-h-screen max-w-5xl bg-mist shadow-2xl flex flex-col ${homeOpen ? 'home-mode' : activeTab === 'chat' ? 'chat-mode pb-28' : 'pb-20'}`}>
       {/* Sticky Top Header */}
-      {!homeOpen && <header className="sticky top-0 z-30 border-b border-mountain-border/70 bg-white/90 px-4 py-3 backdrop-blur-md">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button type="button" onClick={() => setHomeOpen(true)} aria-label="Volver al inicio" className="grid min-h-10 min-w-10 shrink-0 place-items-center rounded-full text-mountain-muted transition-colors hover:bg-mist hover:text-frailejon-deep">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            </button>
-            {/* Minimalist Mountain Emblem */}
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-frailejon text-white"
-              aria-hidden="true"
-            >
-              <KumandayMark size={25} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-sm font-bold leading-tight text-mountain-ink">
-                Kumanday • PNN Los Nevados
-              </h1>
-              <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-moss-surface px-2 py-0.5 text-[10px] font-semibold text-frailejon-deep">
-                {health?.ollama_connected && health.model_available ? (
-                  <Wifi className="h-3 w-3" aria-hidden="true" />
-                ) : (
-                  <CloudOff className="h-3 w-3" aria-hidden="true" />
-                )}
-                <span>{health === null ? 'Revisando modelo…' : health.ollama_connected && health.model_available ? 'IA local lista' : health.ollama_connected ? 'Falta modelo local' : 'IA local no disponible'}</span>
+      {!homeOpen && <header className="sticky top-0 z-30 border-b border-mountain-border/70 bg-white/90 px-3 py-2.5 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-frailejon text-white shadow-sm"
+                aria-hidden="true"
+              >
+                <KumandayMark size={26} className="text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-sm font-bold leading-tight text-mountain-ink">
+                  Kumanday
+                </h1>
+                <p className="truncate text-[10px] leading-tight text-mountain-muted">
+                  {tx(language, 'Guía del Parque Los Nevados', 'Los Nevados Park guide')}
+                </p>
+                <div title={headerStatus} role="status" aria-live="polite" className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-moss-surface px-2 py-0.5 text-[10px] font-semibold text-frailejon-deep">
+                  {health === null || !guideChunksReady
+                    ? <LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />
+                    : health.ollama_connected && health.model_available
+                      ? <Sparkles className="h-3 w-3" aria-hidden="true" />
+                      : health.offline_ready && guideChunks.length > 0
+                        ? <BookOpen className="h-3 w-3" aria-hidden="true" />
+                        : <CloudOff className="h-3 w-3" aria-hidden="true" />}
+                  <span className="truncate">{headerStatus}</span>
+                </div>
               </div>
             </div>
+            <button type="button" onClick={() => setHomeOpen(true)} aria-label={tx(language, 'Volver al inicio', 'Back to home')} className="header-home-button inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-mountain-border/70 bg-white/70 px-3 text-mountain-ink transition-colors hover:bg-mist">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              <span className="text-xs font-semibold">{tx(language, 'Inicio', 'Home')}</span>
+            </button>
           </div>
 
-          {/* Quick "Protegiendo la Vida" SOS Button */}
-          <div className="header-actions flex shrink-0 items-center gap-1.5 rounded-full border border-mountain-border/80 bg-white/45 p-1">
+          <div className="header-actions flex w-full items-center gap-1 rounded-2xl border border-mountain-border/80 bg-white/45 p-1 sm:w-auto sm:shrink-0 sm:gap-1.5">
+            <button type="button" onClick={toggleLanguage} aria-label={tx(language, 'Cambiar idioma a inglés', 'Change language to Spanish')} title={tx(language, 'Cambiar idioma', 'Change language')} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl border border-mountain-border/70 bg-white/70 px-1.5 text-[10px] font-semibold text-mountain-ink transition-colors hover:bg-mist sm:px-2 sm:text-xs">
+              <Languages className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="whitespace-nowrap">{language === 'es' ? 'English' : 'Español'}</span>
+            </button>
             <button
               type="button"
               onClick={() => setSafetyOpen(true)}
-              aria-label="Abrir triaje de seguridad"
-              className="safety-header-button grid min-h-9 min-w-9 place-items-center rounded-full border border-sos-red/20 bg-sos-surface text-on-sos-surface transition hover:brightness-95"
+              aria-label={tx(language, 'Abrir información de emergencias y seguridad', 'Open emergency and safety information')}
+              title={tx(language, 'Emergencias y seguridad', 'Emergencies and safety')}
+              className="safety-header-button flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl border border-sos-red/20 bg-sos-surface px-1.5 text-[10px] font-semibold text-on-sos-surface transition hover:brightness-95 sm:px-2 sm:text-xs"
             >
               <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+              <span className="whitespace-nowrap">{tx(language, 'Emergencias', 'Safety')}</span>
             </button>
-            <button type="button" onClick={() => setDarkMode((value) => !value)} aria-label={darkMode ? 'Usar tema claro' : 'Usar tema oscuro'} title={darkMode ? 'Tema claro' : 'Tema oscuro'} className="grid min-h-9 min-w-9 place-items-center rounded-full border border-mountain-border/70 bg-white/70 text-mountain-ink">
+            <button type="button" onClick={() => setDarkMode((value) => !value)} aria-label={darkMode ? tx(language, 'Usar tema claro', 'Use light theme') : tx(language, 'Usar tema oscuro', 'Use dark theme')} title={darkMode ? tx(language, 'Tema claro', 'Light theme') : tx(language, 'Tema oscuro', 'Dark theme')} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl border border-mountain-border/70 bg-white/70 px-1.5 text-[10px] font-semibold text-mountain-ink transition-colors hover:bg-mist sm:px-2 sm:text-xs">
               {darkMode ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+              <span className="whitespace-nowrap">{darkMode ? tx(language, 'Modo claro', 'Light mode') : tx(language, 'Modo oscuro', 'Dark mode')}</span>
             </button>
           </div>
         </div>
@@ -330,7 +360,7 @@ function App() {
       {/* Main Content — Views stay mounted with CSS toggle so tab switches preserve state */}
       <main className={`experience-content flex-1 px-4 py-4 md:px-8 md:py-7 ${homeOpen ? 'home-main' : 'experience-enter'}`}>
         {homeOpen ? (
-          <section className={`welcome-screen cinematic-welcome ${welcomeIntroComplete ? 'intro-complete' : ''}`} aria-label="Inicio de Kumanday">
+          <section className={`welcome-screen cinematic-welcome ${welcomeIntroComplete ? 'intro-complete' : ''}`} aria-label={tx(language, 'Inicio de Kumanday', 'Kumanday home')}>
             <div className="welcome-scene" aria-hidden="true">
               <div className="scene-stars" />
               <div className="scene-sun-halo"><span /></div>
@@ -365,50 +395,35 @@ function App() {
               <div className="scene-mist mist-high" />
               <div className="scene-grain" />
             </div>
-            <div className="welcome-topline"><span className="welcome-coordinate">4° 49′ N&nbsp; · &nbsp;75° 22′ O</span><span className="welcome-live"><i /> PÁRAMO VIVO</span></div>
+            <div className="welcome-topline"><span className="welcome-coordinate">4° 49′ N&nbsp; · &nbsp;75° 22′ {language === 'es' ? 'O' : 'W'}</span><span className="welcome-live"><i /> {tx(language, 'PÁRAMO VIVO', 'LIVING PÁRAMO')}</span><button type="button" onClick={toggleLanguage} aria-label={tx(language, 'Cambiar idioma a inglés', 'Change language to Spanish')} className="welcome-language"><Languages size={14}/>{language.toUpperCase()}</button></div>
             <div className="welcome-copy cinematic-copy">
-              <div className="welcome-brand"><span>PARQUE NACIONAL NATURAL <i>•</i> COLOMBIA</span></div>
+              <div className="welcome-brand"><span>{tx(language, 'PARQUE NACIONAL NATURAL', 'NATIONAL NATURAL PARK')} <i>•</i> COLOMBIA</span></div>
               <div className="welcome-brand-mark"><KumandayMark size={55} className="text-white" /></div>
-              <p className="welcome-eyebrow">ALTO ANDES · 4.150 M S. N. M.</p>
+              <p className="welcome-eyebrow">{tx(language, 'ALTOS ANDES · 4.150 M S. N. M.', 'HIGH ANDES · 4,150 M A.S.L.')}</p>
               <h2>Kumanday<span>.</span></h2>
-              <p className="welcome-description">El páramo tiene historias que contar.<br/>Vamos a escucharlas.</p>
+              <p className="welcome-description">{language === 'es' ? <>El páramo tiene historias que contar.<br/>Vamos a escucharlas.</> : <>The páramo has stories to tell.<br/>Let’s listen.</>}</p>
               <div className="welcome-route-line" aria-hidden="true"><span/><i/><span/><i/><span/></div>
-              <p className="welcome-caption">RUTAS &nbsp;·&nbsp; VIDA &nbsp;·&nbsp; MONTAÑA</p>
-              <button type="button" onClick={() => enterExperience()} className="welcome-cta">Explorar el páramo <ArrowRight size={18}/></button>
-              {!welcomeIntroComplete && <button type="button" onClick={() => setWelcomeIntroComplete(true)} className="welcome-skip">Saltar animación <ArrowRight size={14}/></button>}
+              <p className="welcome-caption">{tx(language, 'ESTACIONES · VIDA · MONTAÑA', 'STATIONS · LIFE · MOUNTAINS')}</p>
+              <button type="button" onClick={() => enterExperience()} className="welcome-cta">{tx(language, 'Explorar el páramo', 'Explore the páramo')} <ArrowRight size={18}/></button>
+              {!welcomeIntroComplete && <button type="button" onClick={() => setWelcomeIntroComplete(true)} className="welcome-skip">{tx(language, 'Saltar animación', 'Skip animation')} <ArrowRight size={14}/></button>}
               <div className="welcome-credit"><span>KUMANDAY</span><i/> Luis Miguel Medina & Sebastián Orjuela</div>
             </div>
             <div className="welcome-progress" aria-hidden="true"><span/></div>
           </section>
         ) : (
         <>
-        <div className={`${activeTab === 'rutas' ? 'view-active' : 'view-inactive'} flex flex-col gap-5`} aria-hidden={activeTab !== 'rutas'} inert={activeTab !== 'rutas'}>
-          <GpsRadar
-            altitude={altitude}
-            radar={radar}
-            coords={coords}
-            onAltitudeChange={setAltitude}
-            onCoordsChange={setCoords}
-            onOpenSafety={() => setSafetyOpen(true)}
-          />
-          <TrailCatalog
-            rutas={rutas}
-            altitude={altitude}
-            onAskAboutRuta={(ruta) =>
-              handleAskKumandayFromOutside(
-                `¿Qué estaciones, reglas de ingreso y cuidados debo tener en ${ruta.nombre}?`,
-                undefined,
-                ruta.id,
-              )
-            }
-            bitacora={bitacora}
-            onAddBitacora={handleAddBitacora}
-          />
+        <div className={`${activeTab === 'estaciones' ? 'view-active' : 'view-inactive'} flex flex-col gap-5`} aria-hidden={activeTab !== 'estaciones'} inert={activeTab !== 'estaciones'}>
+          <StationCatalog estaciones={estaciones} language={language} onAsk={(prompt) => handleAskKumandayFromOutside(prompt)} />
+          <section className="rounded-3xl border border-mountain-border bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3"><FileUp className="mt-1 text-frailejon"/><div className="min-w-0 flex-1"><h3 className="font-bold text-mountain-ink">{tx(language, 'Fuente UTON activa', 'Active UTON source')}</h3><p className="mt-1 truncate text-xs text-mountain-muted">{guideName === 'Guiones UTON incluidos' ? tx(language, 'Guiones UTON incluidos', 'Bundled UTON guides') : guideName} · {guideChunks.length} {tx(language, 'fragmentos con página', 'page-cited excerpts')}</p></div></div>
+            <label className="mt-4 flex min-h-12 cursor-pointer items-center justify-center rounded-full border border-dashed border-frailejon/40 bg-moss-surface px-4 text-sm font-bold text-frailejon-deep">{tx(language, 'Subir guía revisada (PDF, TXT, CSV, DOCX)', 'Upload a reviewed guide (PDF, TXT, CSV, DOCX)')}<input type="file" accept=".pdf,.txt,.csv,.docx" className="sr-only" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; setUploadMessage(tx(language, 'Leyendo documento…', 'Reading document…')); try { const data = await uploadUtonFile(file); setGuideChunks(data.chunks); setGuideChunksReady(true); setGuideName(data.filename); setUploadMessage(language === 'es' ? `${data.chunks.length} fragmentos · ${data.pages} páginas. Esta fuente reemplaza las fuentes incluidas en esta sesión.` : `${data.chunks.length} excerpts · ${data.pages} pages. This source replaces the bundled sources for this session.`) } catch (error) { setUploadMessage(error instanceof Error ? error.message : tx(language, 'No se pudo leer el archivo.', 'Could not read the file.')) } }} /></label>
+            {uploadMessage && <p role="status" className="mt-3 text-xs text-mountain-muted">{uploadMessage}</p>}
+          </section>
         </div>
 
         <div className={activeTab === 'vision' ? 'view-active' : 'view-inactive'} aria-hidden={activeTab !== 'vision'} inert={activeTab !== 'vision'}>
           <VisionLens
-            altitude={altitude}
+            language={language}
             especies={especies}
             onSpeciesIdentified={setLastSpecies}
             onAskKumanday={handleAskKumandayFromOutside}
@@ -417,7 +432,7 @@ function App() {
 
         <div className={activeTab === 'chat' ? 'view-active' : 'view-inactive'} aria-hidden={activeTab !== 'chat'} inert={activeTab !== 'chat'}>
           <RagChat
-            altitude={altitude}
+            language={language}
             messages={chatMessages}
             loading={chatLoading}
             lastSpecies={lastSpecies}
@@ -428,26 +443,27 @@ function App() {
             onStartNewChat={handleStartNewChat}
             onClearCache={handleClearCache}
             onOpenSafety={() => setSafetyOpen(true)}
-            onOpenRutas={() => setActiveTab('rutas')}
+            onOpenRutas={() => setActiveTab('estaciones')}
           />
         </div>
         </>
         )}
       </main>
 
-      {!homeOpen && <Navbar activeTab={activeTab} onSelectTab={setActiveTab} />}
+      {!homeOpen && <Navbar activeTab={activeTab} language={language} onSelectTab={setActiveTab} />}
 
       <SafetyModal
         isOpen={safetyOpen}
-        altitude={altitude}
+        language={language}
         coords={coords}
+        onCoordsChange={setCoords}
         protocolos={protocolos}
         directorio={directorio}
         onClose={() => setSafetyOpen(false)}
       />
       {!homeOpen && <footer className="app-footer mx-auto w-full max-w-5xl px-5 pb-5 pt-2 text-center text-[10px] text-mountain-muted">
-        <span className="inline-flex items-center justify-center gap-1.5"><Leaf size={12} aria-hidden="true"/> Kumanday · Guía local del PNN Los Nevados</span>
-        <span className="mt-1 block">Creada por Luis Miguel Medina y Sebastián Orjuela</span>
+        <span className="inline-flex items-center justify-center gap-1.5"><Leaf size={12} aria-hidden="true"/> {tx(language, 'Kumanday · Guía local del PNN Los Nevados', 'Kumanday · Local guide to Los Nevados National Natural Park')}</span>
+        <span className="mt-1 block">{tx(language, 'Creada por Luis Miguel Medina y Sebastián Orjuela', 'Created by Luis Miguel Medina and Sebastián Orjuela')}</span>
       </footer>}
     </div>
   )

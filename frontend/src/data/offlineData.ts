@@ -10,6 +10,8 @@ import type {
   Ruta,
   VisionResponse,
 } from '../types/paramo'
+import type { Language } from '../i18n'
+import { tx } from '../i18n'
 
 export const OFFLINE_RUTAS: Ruta[] = [
   {
@@ -569,7 +571,7 @@ export function buildOfflineChatReply(message: string, altitud_m: number): ChatR
   }
 }
 
-export function buildOfflineVisionFallback(hint: string | undefined): VisionResponse {
+export function buildOfflineVisionFallback(hint: string | undefined, language: Language = 'es'): VisionResponse {
   const sampleId = hint?.startsWith('sample:') ? hint.slice('sample:'.length) : undefined
   const sp = sampleId ? OFFLINE_ESPECIES.find((item) => item.id === sampleId) : undefined
 
@@ -582,8 +584,10 @@ export function buildOfflineVisionFallback(hint: string | undefined): VisionResp
       estado: sp.estado,
       rol_ecologico: sp.rol_ecologico,
       alerta_conservacion: sp.alerta_conservacion,
-      confianza: 'Catálogo Offline Verificado',
-      descripcion_ia: `Ficha científica offline cargada para ${sp.nombre_comun}: ${sp.rol_ecologico}`,
+      confianza: tx(language, 'Catálogo Offline Verificado', 'Verified offline catalog'),
+      descripcion_ia: language === 'en'
+        ? `Verified local species record loaded for ${sp.nombre_comun}.`
+        : `Ficha científica offline cargada para ${sp.nombre_comun}: ${sp.rol_ecologico}`,
       model: 'offline-fallback-js',
       fallback_used: true,
     }
@@ -591,17 +595,23 @@ export function buildOfflineVisionFallback(hint: string | undefined): VisionResp
 
   return {
     en_pnnn: false,
-    nombre_comun: 'Motor visual IA no disponible',
-    nombre_cientifico: 'Verificación visual en espera',
+    nombre_comun: tx(language, 'Motor visual IA no disponible', 'AI vision model unavailable'),
+    nombre_cientifico: tx(language, 'Verificación visual en espera', 'Visual verification pending'),
     tipo: 'Sin Confirmación',
-    estado: 'Ollama multimodal offline',
-    rol_ecologico:
+    estado: tx(language, 'Ollama multimodal offline', 'Ollama multimodal offline'),
+    rol_ecologico: tx(language,
       'Para evitar identificaciones erróneas sobre fotos personalizadas, Kumanday no asigna especies sin el motor visual activo.',
-    alerta_conservacion:
+      'To avoid incorrect identifications of uploaded photos, Kumanday will not assign a species without the local vision model active.',
+    ),
+    alerta_conservacion: tx(language,
       'Enciende el backend con Ollama (gemma3:4b) para analizar fotos externas o explora el catálogo de 12 especies.',
-    confianza: 'Sin confirmación',
-    descripcion_ia:
+      'Start the backend with Ollama (gemma3:4b) to analyze other photos, or browse the 12-species catalog.',
+    ),
+    confianza: tx(language, 'Sin confirmación', 'Unconfirmed'),
+    descripcion_ia: tx(language,
       'La fotografía fue validada localmente, pero no se pudo contactar al modelo visual en este momento.',
+      'The photo passed local validation, but the vision model could not be reached.',
+    ),
     model: 'offline-fallback-js',
     fallback_used: true,
   }

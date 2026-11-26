@@ -12,6 +12,7 @@ import type {
   ChatTurn,
   EmergenciaContacto,
   Especie,
+  Estacion,
   HealthResponse,
   ProtocoloVida,
   RadarResponse,
@@ -75,7 +76,7 @@ export async function getHealth(): Promise<HealthResponse> {
       model_available: false,
       active_models: [],
       species_count: OFFLINE_ESPECIES.length,
-      offline_ready: true,
+      offline_ready: false,
     }
   }
 }
@@ -86,6 +87,29 @@ export async function getRutas(): Promise<Ruta[]> {
   } catch {
     return OFFLINE_RUTAS
   }
+}
+
+export async function getEstaciones(): Promise<Estacion[]> {
+  try {
+    return await fetchJson<Estacion[]>(`${API_BASE}/estaciones`, undefined, 3500)
+  } catch {
+    return []
+  }
+}
+
+export async function getUtonSources(): Promise<Array<{ text: string; page: number; source: string }>> {
+  try {
+    const response = await fetchJson<{ chunks: Array<{ text: string; page: number; source: string }> }>(`${API_BASE}/fuentes/uton`, undefined, 3500)
+    return response.chunks
+  } catch {
+    return []
+  }
+}
+
+export async function uploadUtonFile(file: File): Promise<{ filename: string; chunks: Array<{ text: string; page: number; source: string }>; pages: number }> {
+  const form = new FormData()
+  form.append('file', file)
+  return fetchJson(`${API_BASE}/fuentes/uton`, { method: 'POST', body: form }, 20000)
 }
 
 export async function getEspecies(): Promise<Especie[]> {
@@ -128,10 +152,11 @@ export async function getProtocolos(): Promise<{
 
 export async function postChat(payload: {
   message: string
-  altitud_m: number
   ruta_id?: string
   last_species?: string
   history?: ChatTurn[]
+  guide_chunks?: Array<{ text: string; page: number; source: string }>
+  language?: 'es' | 'en'
 }): Promise<ChatResponse> {
   try {
     return await fetchJson<ChatResponse>(
@@ -145,14 +170,27 @@ export async function postChat(payload: {
     )
   } catch (err) {
     if (err instanceof ApiError) throw err
-    return buildOfflineChatReply(payload.message, payload.altitud_m)
+    return {
+      agent_name: 'Kumanday',
+      reply: payload.language === 'en'
+        ? 'I cannot verify the UTON source right now. Please contact an authorized expert guide.'
+        : 'No puedo verificar la fuente UTON ahora. Por favor, comunícate con un guía experto autorizado.',
+      sources: [],
+      tools_used: ['sin_fuente_disponible'],
+      suggested_action: 'none',
+      out_of_domain: true,
+      model: 'respuesta-segura',
+      safety_alert: false,
+      fallback_used: true,
+      insufficient_evidence: true,
+    }
   }
 }
 
 export async function postVision(payload: {
   image_base64: string
-  altitud_m: number
   hint?: string
+  language?: 'es' | 'en'
 }): Promise<VisionResponse> {
   try {
     return await fetchJson<VisionResponse>(
@@ -166,6 +204,6 @@ export async function postVision(payload: {
     )
   } catch (err) {
     if (err instanceof ApiError) throw err
-    return buildOfflineVisionFallback(payload.hint)
+    return buildOfflineVisionFallback(payload.hint, payload.language)
   }
 }

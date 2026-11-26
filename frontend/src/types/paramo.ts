@@ -65,7 +65,17 @@ export interface ChatTurn {
   content: string
 }
 
-export type AgentSuggestedAction = 'none' | 'open_safety' | 'open_rutas' | 'open_vision'
+export type AgentSuggestedAction = 'none' | 'open_safety' | 'open_rutas' | 'open_vision' | 'open_estaciones'
+
+export interface Estacion {
+  id: string
+  nombre: string
+  altitud: string
+  tema: string
+  resumen: string
+  experiencia: string
+  fuentes: string[]
+}
 
 export interface ChatResponse {
   agent_name: string
@@ -77,6 +87,7 @@ export interface ChatResponse {
   model: string
   fallback_used: boolean
   safety_alert: boolean
+  insufficient_evidence: boolean
 }
 
 export interface UiChatMessage {
@@ -133,4 +144,4 @@ export interface BitacoraEntry {
   fecha_label: string
 }
 
-export type AppTab = 'rutas' | 'vision' | 'chat'
+export type AppTab = 'estaciones' | 'vision' | 'chat'
